@@ -1,6 +1,6 @@
 # Capsule — Project Context
 
-*App name: **Capsule** (the overview file still uses the old working name "Tomorrow Fit"). Full source brief: `tomorrow-fit-project-overview.md`.*
+*App name: **Capsule** (formerly working name "Tomorrow Fit"). Full source brief: `README.md`.*
 
 ## Repository
 - GitHub: https://github.com/victorianeeser/capsule (**public**, default branch `main`)
