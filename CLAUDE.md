@@ -54,7 +54,7 @@ This is a real, daily-use app, not just a class prototype: data must persist rel
 - Row-level security on every table: users see only their own data. Photos in a private per-user Storage bucket.
 
 ## Screens and navigation
-Bottom tab bar: **Home · Planner · Closet · Settings** (Home tab added and Shop tab removed 2026-11-11 — Shop opens from a "Going shopping?" card on Home; "Planner" renamed from "Tonight" 2026-11-10). Clickable wireframes + prototype live on the Figma **Wireframes** page.
+Bottom tab bar: **Home · Planner · Closet** (2026-11-11: Home tab added; Shop and Settings tabs removed — Shop opens from a "Going shopping?" card on Home, Settings from a button in Home's top-right; "Planner" renamed from "Tonight" 2026-11-10). Clickable wireframes + prototype live on the Figma **Wireframes** page.
 1. Sign in / sign up
 2. Onboarding: weekly routine + home city → add first 15 pieces
 3. Home — evening: tomorrow's suggestion + weather + nudges — *Home tab*
@@ -67,7 +67,7 @@ Bottom tab bar: **Home · Planner · Closet · Settings** (Home tab added and Sh
 9. Shopping mode (search, counts, gaps, "would this go with") — *opened from the Home card (back returns to Home)*
 10. Wishlist — *inside Shopping mode*
 11. Plan the week — *Planner tab*
-12. Settings (routine, city, units, account) — *Settings tab*
+12. Settings (routine, city, units, account) — *opened from the settings button on Home (back returns to Home)*
 
 ## Design direction
 - Hi-fi screens and design system coming from Figma; match them once shared. Brand guidelines live on the Figma **Branding** page (mood board on the **Inspo** page).
