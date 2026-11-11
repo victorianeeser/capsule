@@ -102,7 +102,7 @@ Rule-based, simple and predictable:
 11. Plan the week
 12. Settings (routine, city, units, account)
 
-Bottom tab bar: **Planner · Closet · Shop · Settings**
+Bottom tab bar: **Home · Planner · Closet · Settings** (Shopping mode opens from a card on Home)
 
 ## Build phases
 1. **Setup:** project scaffold, Supabase auth, design tokens, PWA manifest, deploy pipeline.

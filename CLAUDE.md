@@ -31,8 +31,8 @@ This is a real, daily-use app, not just a class prototype: data must persist rel
 1. **Closet** — add item (camera or upload → auto background removal → tag in a few taps, < 30 s per item); **batch-add via multi-photo upload**; tags: category (top, bottom, dress, outerwear, shoes, accessory), color, warmth (light/mid/warm), dress level (casual/work/going out), context (work/weekend/both); grid filtered by category; search ("black jeans"); item detail (photo, tags, times worn, last worn, edit, delete).
 2. **Closet audit** (onboarding + anytime) — one category at a time; per item: Keep / Donate / Need to replace. "Need to replace" auto-adds to Gaps. Onboarding prompt: "Start with your 15 favorite pieces" — never force a full upload.
 3. **Shopping mode** — quick view by category; "do I already have this?" search; Gaps list (manual / audit / nudge, e.g. no warm outerwear when forecast < 40°F); count check ("14 black tops"); "Would this go with…" (snap in-store photo, view next to owned pieces; not saved unless "I bought it"); Wishlist.
-4. **Planner (tonight's plan)** — tomorrow's weather (high/low, rain) and day type; weekly routine set once (default Mon–Fri = Work 9–5), any day overridable; off days: multi-select activities (brunch, errands, going out, gym, lounging, game day); suggested outfit or build-your-own by swiping per category; swap one piece without regenerating; save for tomorrow; optional Sunday "Plan the week" for 5 workdays.
-5. **Morning view, worn log, favorites** — morning opens to today's planned outfit; "Wore it" logs every piece with date; favorite outfits for reuse; nudges for pieces not worn in a while.
+4. **Planner** (calendar flow modeled on the Fits app — updated 2026-11-11) — **Day view**: week strip (Sun–Sat), selected date with weather + day type chips, swipeable outfit cards (one per day, neighbors peek), "Suggested" tag + one-line reason, "Add a note…"; **Month view**: calendar grid with outfit thumbnails or "+" per day. **Add outfit**: options (Suggested / Saved outfits / Outfit photo) + category-filtered grid with multi-select → **Canvas** (free-arrange collage; one toolbar action: Add clothes) → **Add clothes** bottom sheet → **Outfit details** (note, date, day type, weather, save to favorites; private — no public/social options) → Save. Weekly routine set once (default Mon–Fri = Work 9–5), any day overridable; off days: multi-select activities (brunch, errands, going out, gym, lounging, game day); optional Sunday "Plan the week" for 5 workdays.
+5. **Home, worn log, favorites** — Home tab is the dashboard: evening = tomorrow's suggested outfit with weather/day type ("Change it" → Add outfit, "Looks good" → saves to Planner) + today's outfit + nudges + "Going shopping?" card (gap + piece counts) that opens Shopping mode; morning = today's planned outfit with "Wore it" (logs every piece with date). Favorite outfits for reuse; nudges for pieces not worn in a while, Sunday plan-the-week reminder, weather-driven gaps.
 
 ## Suggestion rules (rule-based, no AI in v1)
 - Work day → only items with context work or both, dress level work or casual.
@@ -54,24 +54,25 @@ This is a real, daily-use app, not just a class prototype: data must persist rel
 - Row-level security on every table: users see only their own data. Photos in a private per-user Storage bucket.
 
 ## Screens and navigation
-Bottom tab bar: **Planner · Closet · Shop · Settings** (tab renamed from "Tonight" on 2026-11-10)
+Bottom tab bar: **Home · Planner · Closet · Settings** (Home tab added and Shop tab removed 2026-11-11 — Shop opens from a "Going shopping?" card on Home; "Planner" renamed from "Tonight" 2026-11-10). Clickable wireframes + prototype live on the Figma **Wireframes** page.
 1. Sign in / sign up
 2. Onboarding: weekly routine + home city → add first 15 pieces
-3. Home / Planner (tomorrow's weather + day type + outfit) — *Planner tab*
-4. Morning view (today's outfit, "Wore it") — *Planner tab*
+3. Home — evening: tomorrow's suggestion + weather + nudges — *Home tab*
+4. Home — morning: today's outfit, "Wore it" — *Home tab*
+4a. Planner Day / Month views, Add outfit, Canvas, Add clothes sheet, Outfit details, Off-day activities — *Planner tab*
 5. Closet grid + filters + search — *Closet tab*
 6. Add item (camera/upload → background removal → tags) — *Closet tab*
 7. Item detail — *Closet tab*
 8. Closet audit flow — *Closet tab*
-9. Shopping mode (search, counts, gaps, "would this go with") — *Shop tab*
-10. Wishlist — *Shop tab*
+9. Shopping mode (search, counts, gaps, "would this go with") — *opened from the Home card (back returns to Home)*
+10. Wishlist — *inside Shopping mode*
 11. Plan the week — *Planner tab*
 12. Settings (routine, city, units, account) — *Settings tab*
 
 ## Design direction
 - Hi-fi screens and design system coming from Figma; match them once shared. Brand guidelines live on the Figma **Branding** page (mood board on the **Inspo** page).
 - **Brand (updated Nov 10 2026 — browns & beiges, so the clothes bring the color):** calm, refined, a little romantic. Logo = script "C" that doubles as a hanger + light italic serif "apsule" + Inter tagline "outfit planner ⁘ closet tracker".
-- **Palette:** Espresso `#3E372E` (primary, text, dark surfaces), Stone `#A5A099` (accent, secondary fills — too light for small text on Cloud), Cloud `#EEEBE7` (app background), White `#FFFFFF` (cards/surfaces), Black `#000000` (max-contrast text). Warning/error colors not chosen yet. (The Figma swatch for Espresso is still labeled "Forest" — old name.)
+- **Palette:** Espresso `#3E372E` (primary, text, dark surfaces), Stone `#A5A099` (accent, secondary fills — too light for small text on Cloud), White `#FFFFFF` (**app background** — changed from Cloud on 2026-11-11; also raised/shadowed surfaces like outfit cards, sheets, the canvas), Card `#F6F4F1` (flat cards/tiles on white), Cloud `#EEEBE7` (chips, thumbnails, subtle fills), Black `#000000` (max-contrast text). Warning/error colors not chosen yet. (The Figma swatch for Espresso is still labeled "Forest" — old name.)
 - **Type:** headings in SFT Schrifted Serif Light Italic (**trial font — needs a license before launch**; free stand-in used in Figma research slides: Instrument Serif Italic, OFL), body/labels/UI in **Inter**, Imperial Script for the C monogram only. Treatment (see Figma Concept page): small Inter caps eyebrow → large serif-italic headline → Inter body; section names in serif italic.
 - Generous spacing, clear hierarchy, no busy UI, thumb-friendly tap targets.
 
