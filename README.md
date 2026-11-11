@@ -53,7 +53,7 @@ This is a real app I will use every day, not just a class prototype. It needs to
 - **"Would this go with…":** snap a photo of an item in the store and see it next to my pieces to picture outfits. It doesn't get saved to the closet unless I tap "I bought it."
 - **Wishlist:** things I saw but didn't buy.
 
-### 4. Tonight's plan (nightly outfit)
+### 4. Planner (nightly outfit)
 - Shows tomorrow's weather (high/low, rain) and what tomorrow is.
 - **Weekly routine:** set once in settings. Default: Monday–Friday = Work (9–5). Any single day can be overridden.
 - **Weekends / off days:** tap what I'm doing in the moment (brunch, errands, going out, gym, lounging, game day). Multi-select allowed.
@@ -91,7 +91,7 @@ Rule-based, simple and predictable:
 ## Screens
 1. Sign in / sign up
 2. Onboarding: set the weekly routine and home city, then add your first 15 pieces
-3. Home / Tonight (tomorrow's weather + day type + outfit)
+3. Home / Planner (tomorrow's weather + day type + outfit)
 4. Morning view (today's outfit, "Wore it")
 5. Closet grid + filters + search
 6. Add item (camera → background removal → tags)
@@ -102,13 +102,13 @@ Rule-based, simple and predictable:
 11. Plan the week
 12. Settings (routine, city, units, account)
 
-Bottom tab bar: **Tonight · Closet · Shop · Settings**
+Bottom tab bar: **Planner · Closet · Shop · Settings**
 
 ## Build phases
 1. **Setup:** project scaffold, Supabase auth, design tokens, PWA manifest, deploy pipeline.
 2. **Closet:** add/edit/delete items, photo upload with background removal, tags, grid, filters, search.
 3. **Audit + Gaps:** audit flow and gaps list.
-4. **Tonight:** weather, weekly routine, activity picker, suggestion rules, outfit builder, save plan.
+4. **Planner:** weather, weekly routine, activity picker, suggestion rules, outfit builder, save plan.
 5. **Morning + logging:** morning view, worn log, favorites, no-repeat logic.
 6. **Shopping mode:** search, counts, "would this go with," wishlist.
 7. **Offline + polish:** caching, loading and empty states, error handling, final match to the Figma design.
