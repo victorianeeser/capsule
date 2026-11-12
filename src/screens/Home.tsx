@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Button, Card, Eyebrow, Garment, Heading, Icon, ListRow, Screen, Title, WeatherPill } from '../ui'
+import { Button, Card, Eyebrow, Garment, Heading, Icon, Screen, Title, WeatherPill } from '../ui'
 import { TOMORROW } from '../data'
 
 function HomeHeader({ greeting, date }: { greeting: string; date: string }) {
@@ -22,7 +22,7 @@ function HomeHeader({ greeting, date }: { greeting: string; date: string }) {
 export function Home() {
   return (
     <Screen tabs>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         <HomeHeader greeting="Good evening" date="Wed, Nov 11 · Lawrence, KS" />
 
         <Card className="flex flex-col gap-3 p-[18px]">
@@ -49,33 +49,40 @@ export function Home() {
           </div>
           <div className="flex-1">
             <p className="text-[15px] font-medium">Today’s outfit</p>
-            <p className="text-[13px] text-text-muted">✓ Wore it · logged this morning</p>
+            <p className="text-[13px] text-text-muted">✓ Wore it this morning</p>
           </div>
           <Icon name="chev" size={20} />
         </Card>
 
         <Heading size={18} className="pt-1">For you</Heading>
-        <div className="-mt-2">
-          <ListRow title="Plan your work week" detail="Sunday reminder · takes about 5 minutes" to="/planner/week" />
-        </div>
+        <ActionCard to="/planner/week" icon="calendar" title="Plan your work week" detail="Sunday reminder · 5 minutes" />
 
-        <Card to="/shop" className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-soft"><Icon name="bag" /></span>
-            <div className="flex-1">
-              <Heading size={16}>Going shopping?</Heading>
-              <p className="text-[13px] text-text/65">What you own and what you need.</p>
-            </div>
-            <Icon name="chev" size={20} />
-          </div>
+        <ActionCard to="/shop" icon="bag" title="Going shopping?" detail="What you own and what you need.">
           <div className="no-scrollbar flex gap-2 overflow-x-auto">
             {['2 gaps · warm coat, white sneakers', '86 pieces'].map((s) => (
               <span key={s} className="shrink-0 whitespace-nowrap rounded-full bg-cloud px-3 py-1.5 text-[12px] font-medium">{s}</span>
             ))}
           </div>
-        </Card>
+        </ActionCard>
       </div>
     </Screen>
+  )
+}
+
+/** Home card: icon square + title/detail + chevron, with optional extra content (chips) below. */
+function ActionCard({ to, icon, title, detail, children }: { to: string; icon: string; title: string; detail: string; children?: React.ReactNode }) {
+  return (
+    <Card to={to} className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-soft"><Icon name={icon} /></span>
+        <div className="min-w-0 flex-1">
+          <Heading size={16}>{title}</Heading>
+          <p className="text-[13px] text-text/65">{detail}</p>
+        </div>
+        <Icon name="chev" size={20} />
+      </div>
+      {children}
+    </Card>
   )
 }
 
