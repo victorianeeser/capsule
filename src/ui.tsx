@@ -109,7 +109,8 @@ export function Screen({ children, tabs = false, pad = true, className = '', dar
 /* ---------------- Type ---------------- */
 export const Eyebrow = ({ children, className = '' }: { children: ReactNode; className?: string }) => <p className={`eyebrow ${className}`}>{children}</p>
 export const Title = ({ children, className = '' }: { children: ReactNode; className?: string }) => <h1 className={`display text-[32px] ${className}`}>{children}</h1>
-export const Heading = ({ children, size = 24, className = '' }: { children: ReactNode; size?: number; className?: string }) => <h2 className={`display ${className}`} style={{ fontSize: size }}>{children}</h2>
+/** Section / card headings — Inter. The serif is reserved for page titles (<Title>). */
+export const Heading = ({ children, size = 20, className = '' }: { children: ReactNode; size?: number; className?: string }) => <h2 className={`font-semibold tracking-[-0.01em] ${className}`} style={{ fontSize: size }}>{children}</h2>
 export const Body = ({ children, className = '' }: { children: ReactNode; className?: string }) => <p className={`text-[15px] leading-[1.4] text-text/75 ${className}`}>{children}</p>
 
 export function Header({ eyebrow, title, body }: { eyebrow?: string; title: string; body?: string }) {

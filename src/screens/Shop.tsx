@@ -12,15 +12,15 @@ export function Shop() {
           <span className="flex items-center gap-2.5 text-[16px] font-semibold"><Icon name="camera" />Would this go with…</span>
           <p className="text-[13px] leading-[1.4] text-text/70">Snap something in the store and see it next to your closet.</p>
         </Card>
-        <div className="flex items-center justify-between"><Heading size={20}>Your gaps</Heading><Link to="/shop/gaps" className="text-[13px] font-medium text-text/70">See all</Link></div>
+        <div className="flex items-center justify-between"><Heading size={18}>Your gaps</Heading><Link to="/shop/gaps" className="text-[13px] font-medium text-text/70">See all</Link></div>
         <div className="-mt-2">
           <ListRow title="Warm winter coat" detail="Nudge · forecast drops below 40° Thu" to="/shop/gaps" />
           <ListRow title="White sneakers" detail="From your audit" to="/shop/gaps" />
         </div>
-        <div className="flex items-center justify-between"><Heading size={20}>What you own</Heading><Link to="/closet" className="text-[13px] font-medium text-text/70">Closet</Link></div>
+        <div className="flex items-center justify-between"><Heading size={18}>What you own</Heading><Link to="/closet" className="text-[13px] font-medium text-text/70">Closet</Link></div>
         <div className="grid grid-cols-3 gap-2">
           {[['24', 'Tops'], ['15', 'Bottoms'], ['6', 'Dresses'], ['7', 'Outerwear'], ['12', 'Shoes'], ['9', 'Accessories']].map(([n, l]) => (
-            <Card key={l} className="p-3"><p className="display text-[20px]">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>
+            <Card key={l} className="p-3"><p className="text-[20px] font-semibold">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>
           ))}
         </div>
         <ListRow title="Wishlist" detail="4 things you saw but didn’t buy" to="/shop/wishlist" />

@@ -94,7 +94,7 @@ export function ItemDetail() {
         <div className="flex flex-wrap gap-2">{['Top', 'Cream', 'Mid warmth', 'Work', 'Both'].map((t) => <Chip key={t} label={t} />)}</div>
         <div className="grid grid-cols-3 gap-2.5">
           {[['6×', 'worn'], ['Nov 4', 'last worn'], ['Keep', 'status']].map(([n, l]) => (
-            <Card key={l} className="p-3.5"><p className="display text-[20px]">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>
+            <Card key={l} className="p-3.5"><p className="text-[20px] font-semibold">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>
           ))}
         </div>
         <Eyebrow className="text-[11px]">In 3 saved outfits</Eyebrow>

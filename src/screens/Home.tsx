@@ -54,7 +54,7 @@ export function Home() {
           <Icon name="chev" size={20} />
         </Card>
 
-        <Heading size={20}>For you</Heading>
+        <Heading size={18} className="pt-1">For you</Heading>
         <div className="-mt-2">
           <ListRow title="Plan your work week" detail="Sunday reminder · takes about 5 minutes" to="/planner/week" />
         </div>
@@ -63,7 +63,7 @@ export function Home() {
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-soft"><Icon name="bag" /></span>
             <div className="flex-1">
-              <Heading size={20}>Going shopping?</Heading>
+              <Heading size={16}>Going shopping?</Heading>
               <p className="text-[13px] text-text/65">What you own and what you need.</p>
             </div>
             <Icon name="chev" size={20} />

@@ -1,15 +1,14 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { BackBar, Button, Card, ChipGroup, CircleButton, Garment, type GarmentKind, Header, Icon, Pill, Screen, SelectTile, Toggle } from '../ui'
+import { BackBar, Button, Card, ChipGroup, CircleButton, Garment, type GarmentKind, Header, Icon, Pill, Screen, SelectTile, Title, Toggle } from '../ui'
 
 /* ---------------- shared planner chrome ---------------- */
 function PlannerNav() {
   const nav = useNavigate()
   return (
-    <div className="flex items-center px-5 pt-1 pb-2">
-      <div className="w-[100px]" />
-      <h1 className="display flex-1 text-center text-[24px]">Planner</h1>
-      <div className="flex w-[100px] justify-end"><Pill onClick={() => nav('/planner')}>Today</Pill></div>
+    <div className="flex items-center justify-between px-5 pt-1 pb-2">
+      <Title>Planner</Title>
+      <Pill onClick={() => nav('/planner')}>Today</Pill>
     </div>
   )
 }
