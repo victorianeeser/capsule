@@ -10,7 +10,7 @@ import { Settings } from './screens/Settings'
 /** Every screen, grouped like the Figma Wireframes rows. Used for routes. */
 export const SCREENS: { group: string; items: [string, string, () => React.JSX.Element][] }[] = [
   { group: 'Sign in & onboarding', items: [['Sign in', '/', SignIn], ['Weekly routine', '/onboarding/routine', Routine], ['Home city', '/onboarding/city', City], ['First pieces', '/onboarding/pieces', FirstPieces]] },
-  { group: 'Home', items: [['Home · evening', '/home', Home], ['Home · morning', '/home/morning', HomeMorning]] },
+  { group: 'Home', items: [['Home · morning', '/home', HomeMorning], ['Home · evening', '/home/evening', Home]] },
   {
     group: 'Planner',
     items: [

@@ -238,11 +238,18 @@ export function Pill({ children, onClick, className = '' }: { children: ReactNod
   )
 }
 
-export function WeatherPill({ now = '46°', hl = 'H:48° L:35°' }: { now?: string; hl?: string }) {
+export function WeatherPill({ now = '46°', hl = 'H:48° L:35°', icon = 'moon' }: { now?: string; hl?: string; icon?: 'moon' | 'sun' }) {
   return (
     <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface py-[7px] pr-3.5 pl-2.5">
       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-        <path d="M19.5 14.6A7.6 7.6 0 1 1 9.4 4.5a6.1 6.1 0 0 0 10.1 10.1z" fill="var(--color-weather)" />
+        {icon === 'moon' ? (
+          <path d="M19.5 14.6A7.6 7.6 0 1 1 9.4 4.5a6.1 6.1 0 0 0 10.1 10.1z" fill="var(--color-weather)" />
+        ) : (
+          <g stroke="var(--color-weather)" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="4.2" fill="var(--color-weather)" stroke="none" />
+            <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" />
+          </g>
+        )}
       </svg>
       <span className="text-[14px] font-semibold">{now}</span>
       <span className="text-[12px] text-text-muted max-[385px]:hidden">{hl}</span>
