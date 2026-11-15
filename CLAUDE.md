@@ -77,6 +77,18 @@ Bottom tab bar: **Home · Planner · Closet** (2026-11-11: Home tab added; Shop 
 - **Type:** headings in SFT Schrifted Serif Light Italic (**trial font — needs a license before launch**; free stand-in used in Figma research slides: Instrument Serif Italic, OFL), body/labels/UI in **Inter**, Imperial Script for the C monogram only. Treatment (see Figma Concept page): small Inter caps eyebrow → large serif-italic headline → Inter body; section names in serif italic.
 - Generous spacing, clear hierarchy, no busy UI, thumb-friendly tap targets.
 
+## Current build status (2026-11-15)
+The app is **fully functional on-device** (no backend yet). Decisions made with the user:
+- **Storage:** everything saves in the browser's IndexedDB via `idb-keyval` (`src/lib/db.ts`: one JSON state record + photos as Blobs). No accounts yet — the Welcome screen replaces Sign in. **Supabase (auth + sync) comes later**; swap `src/lib/db.ts` + the store's save/load for Supabase without touching screens.
+- **Photos:** the user's own, added via multi-photo upload or camera. **Background removal** runs in the browser with `@imgly/background-removal` (AGPL-3.0 — OK because the repo is public; model `isnet_quint8`, ~40 MB downloaded on first use, cached by the service worker). Photos are shrunk to ≤900 px WebP, cut out, speck-cleaned and cropped (`src/lib/images.ts`).
+- **Weather:** Open-Meteo forecast + geocoding (`src/lib/weather.ts`), cached 30 min and reused offline.
+- **Outfit rules:** `src/lib/suggest.ts` implements the Suggestion rules above (work/off day, activities → dress level, <50°/<40°/rain layers, delicate skipped in rain, no repeats within `repeatDays` (default 4) and none Mon–Fri on workdays, explains each pick, lists what's missing → Gaps). Dress level now includes **Athletic** (for Gym).
+- **State/actions:** `src/lib/store.tsx` (React context). Types in `src/lib/types.ts`. Home greeting follows the time of day; `/home` = today, `/home/evening` = plan tomorrow.
+- **Add outfit options** are Suggested / Favorites / Recent (the wireframe's "Outfit photo" option was replaced so every option works).
+- **PWA:** `vite-plugin-pwa` — installable, offline app shell, runtime caching for weather, model files and fonts. Icons in `public/` (192/512/apple-touch).
+- **Demo:** Settings → "Load demo closet" adds silhouette pieces; Settings → "Erase everything" resets the device.
+- Still to do for v1: Supabase accounts + cross-device sync, deploy (Vercel/Netlify), warning/error colors.
+
 ## Build phases
 1. **Setup** — scaffold, Supabase auth, design tokens, PWA manifest, deploy pipeline
 2. **Closet** — add/edit/delete, photo upload (camera + multi-photo batch) with background removal, tags, grid, filters, search

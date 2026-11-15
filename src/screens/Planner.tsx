@@ -1,6 +1,12 @@
-import { useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { BackBar, Button, Card, ChipGroup, CircleButton, Garment, type GarmentKind, Header, Icon, Pill, Screen, SelectTile, Title, Toggle } from '../ui'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { BackBar, Button, Card, Chip, CircleButton, Eyebrow, Header, Icon, Pill, Screen, Title, Toggle } from '../ui'
+import { useStore } from '../lib/store'
+import { ACTIVITIES, CATEGORY_LABEL, type Activity, type Category, type Item, type Placed, type PlannedOutfit } from '../lib/types'
+import { addDays, dayShort, fmtLong, fmtShort, iso, monday, monthTitle, parse, weekStart } from '../lib/dates'
+import { dayInfo, occasionLabel } from '../lib/suggest'
+import { deg, isRainy, condition } from '../lib/weather'
+import { autoLayout, Collage, Empty, ItemImage, Thumbs } from '../components'
 
 /* ---------------- shared planner chrome ---------------- */
 function PlannerNav() {
@@ -12,137 +18,163 @@ function PlannerNav() {
     </div>
   )
 }
-function DayMonth({ active }: { active: 'Day' | 'Month' }) {
+function DayMonth({ active, date }: { active: 'Day' | 'Month'; date: string }) {
   return (
     <div className="flex border-b border-border">
       {(['Day', 'Month'] as const).map((t) => (
-        <Link key={t} to={t === 'Day' ? '/planner' : '/planner/month'} className={`flex flex-1 flex-col items-center gap-2.5 pt-2 text-[16px] ${t === active ? 'font-semibold' : 'font-medium text-text/50'}`}>
-          {t}
-          <span className={`h-0.5 w-full ${t === active ? 'bg-primary' : ''}`} />
+        <Link key={t} to={t === 'Day' ? `/planner?date=${date}` : `/planner/month?m=${date.slice(0, 7)}`} className={`flex flex-1 flex-col items-center gap-2.5 pt-2 text-[16px] ${t === active ? 'font-semibold' : 'font-medium text-text/50'}`}>
+          {t}<span className={`h-0.5 w-full ${t === active ? 'bg-primary' : ''}`} />
         </Link>
       ))}
     </div>
   )
 }
+const useDateParam = () => { const { today } = useStore(); return useSearchParams()[0].get('date') ?? today }
 
-type Outfit = { tag: string; kinds: GarmentKind[]; reason?: string; suggested?: boolean }
-const WEEK: { d: string; n: number; outfits: Outfit[] }[] = [
-  { d: 'Sun', n: 8, outfits: [{ tag: 'Weekend', kinds: ['top', 'jeans', 'shoes'] }] },
-  { d: 'Mon', n: 9, outfits: [{ tag: 'Work day · 9–5', kinds: ['knit', 'bottom', 'shoes'] }] },
-  { d: 'Tue', n: 10, outfits: [{ tag: 'Work day · 9–5', kinds: ['dress', 'shoes'] }] },
-  { d: 'Wed', n: 11, outfits: [{ tag: 'Work day · 9–5', kinds: ['top', 'jeans', 'shoes'], reason: '✓ Worn today' }] },
-  {
-    d: 'Thu', n: 12, outfits: [
-      { tag: 'Work day · 9–5', kinds: ['outerwear', 'knit', 'bottom', 'shoes'], reason: '42° and rain, so we added your trench.', suggested: true },
-      { tag: 'Gym · 6 pm', kinds: ['top', 'jeans', 'shoes'], reason: 'Second outfit today · evening gym' },
-    ],
-  },
-  { d: 'Fri', n: 13, outfits: [] },
-  { d: 'Sat', n: 14, outfits: [] },
-]
-const WEATHER: Record<number, string> = { 8: '55° / 40° · sunny', 9: '50° / 38°', 10: '47° / 36°', 11: '46° / 35°', 12: '42° / 35° · rain', 13: '51° / 39°', 14: '58° / 44° · sunny' }
-const FULL: Record<string, string> = { Sun: 'Sunday', Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday' }
-
-const LAYOUT: Record<number, [number, number, number][]> = {
-  4: [[14, 52, 140], [150, 54, 124], [140, 150, 140], [40, 196, 92]],
-  3: [[30, 50, 130], [150, 110, 150], [40, 200, 100]],
-  2: [[50, 46, 190], [190, 200, 90]],
-}
-function Collage({ kinds, scale = 1 }: { kinds: GarmentKind[]; scale?: number }) {
-  const pos = LAYOUT[kinds.length] ?? LAYOUT[3]
-  return (
-    <>
-      {kinds.map((k, i) => (
-        <Garment key={i} kind={k} size={pos[i][2] * scale} className="absolute" style={{ left: pos[i][0] * scale, top: pos[i][1] * scale }} />
-      ))}
-    </>
-  )
-}
-
-function OutfitCard({ o }: { o: Outfit }) {
-  const nav = useNavigate()
-  return (
-    <div onClick={() => nav('/planner/canvas')} className="relative h-[360px] w-[300px] shrink-0 cursor-pointer overflow-hidden rounded-[22px] bg-surface">
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
-        <Link to="/planner/off-day" onClick={(e) => e.stopPropagation()} className="rounded-full bg-primary px-3 py-[7px] text-[13px] font-medium text-cloud">{o.tag}</Link>
-        {o.suggested && <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggested</span>}
-      </div>
-      <span className="absolute top-3.5 right-3.5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-cloud"><Icon name="more" size={20} /></span>
-      <Collage kinds={o.kinds} />
-      <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-1.5">
-        {o.reason && <p className="text-[12px] text-text/70">{o.reason}</p>}
-        <input onClick={(e) => e.stopPropagation()} placeholder="Add a note…" className="bg-transparent text-[15px] outline-none placeholder:text-text/55" />
-      </div>
-    </div>
-  )
+function useWeatherText(date: string) {
+  const { weatherFor, state } = useStore()
+  const w = weatherFor(date)
+  if (!w) return 'No forecast yet'
+  return `${deg(w.high, state.profile.unit)} / ${deg(w.low, state.profile.unit)}${isRainy(w) ? ' · rain' : ` · ${condition(w.code)}`}`
 }
 
 /* ---------------- Day ---------------- */
+function PlannedCard({ p }: { p: PlannedOutfit }) {
+  const { state, setDraft, unplan, setNote } = useStore()
+  const nav = useNavigate()
+  const o = state.outfits.find((x) => x.id === p.outfitId)
+  const [menu, setMenu] = useState(false)
+  const [note, setNoteText] = useState(p.note)
+  if (!o) return null
+  const edit = () => { setDraft({ date: p.date, itemIds: o.itemIds, layout: o.layout, editingId: p.id, occasion: p.occasion, note: p.note }); nav('/planner/canvas') }
+  return (
+    <div onClick={edit} className="relative h-[360px] w-[300px] shrink-0 cursor-pointer overflow-hidden rounded-[22px] bg-surface">
+      <div className="absolute top-4 left-4 z-10 flex gap-2">
+        <Link to={`/planner/off-day?date=${p.date}`} onClick={(e) => e.stopPropagation()} className="rounded-full bg-primary px-3 py-[7px] text-[13px] font-medium text-cloud">{p.occasion}</Link>
+        {p.suggested && <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggested</span>}
+      </div>
+      <button onClick={(e) => { e.stopPropagation(); setMenu(!menu) }} className="absolute top-3.5 right-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-cloud" aria-label="More"><Icon name="more" size={20} /></button>
+      {menu && (
+        <div onClick={(e) => e.stopPropagation()} className="absolute top-14 right-3.5 z-30 flex w-40 flex-col rounded-md border border-border bg-bg py-1 text-[14px]">
+          <button onClick={edit} className="px-4 py-2.5 text-left">Edit outfit</button>
+          <button onClick={() => { unplan(p.id); setMenu(false) }} className="px-4 py-2.5 text-left">Remove from day</button>
+        </div>
+      )}
+      <Collage itemIds={o.itemIds} layout={o.layout} />
+      <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+        {p.reason && <p className="text-[12px] text-text/70">{p.reason}</p>}
+        <input value={note} onChange={(e) => setNoteText(e.target.value)} onBlur={() => setNote(p.id, note)} placeholder="Add a note…" className="bg-transparent text-[15px] outline-none placeholder:text-text/55" />
+      </div>
+    </div>
+  )
+}
+
+function SuggestionCard({ date }: { date: string }) {
+  const { state, suggestFor, plan, addGap } = useStore()
+  const s = suggestFor(date)
+  const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
+  if (!hasCloset) return <div className="w-[300px]"><Empty title="Nothing to plan with yet" body="Add a few pieces to your closet and Capsule will suggest outfits." action={<Button to="/closet/add">Add pieces</Button>} /></div>
+  return (
+    <div className="relative h-[360px] w-[300px] shrink-0 overflow-hidden rounded-[22px] border-[1.5px] border-dashed border-accent">
+      <div className="absolute top-4 left-4 z-10 flex gap-2">
+        <span className="rounded-full bg-primary/80 px-3 py-[7px] text-[13px] font-medium text-cloud">{s.occasion}</span>
+        <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggestion</span>
+      </div>
+      <div className="opacity-90"><Collage itemIds={s.itemIds} scale={0.8} /></div>
+      <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-2">
+        {s.reason && <p className="text-[12px] text-text/70">{s.reason}</p>}
+        {s.missing.length > 0 && <p className="text-[12px] text-text/70">Missing {s.missing.join(', ')}. <button className="font-semibold underline" onClick={() => s.missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' }))}>Add to Gaps</button></p>}
+        {s.itemIds.length > 0 && <Button onClick={() => plan({ date, itemIds: s.itemIds, occasion: s.occasion, reason: s.reason, suggested: true })}>Use this outfit</Button>}
+      </div>
+    </div>
+  )
+}
+
 export function PlannerDay() {
-  const [sel, setSel] = useState(12)
-  const day = WEEK.find((w) => w.n === sel)!
-  const idx = WEEK.indexOf(day)
-  const prev = WEEK[idx - 1], next = WEEK[idx + 1]
+  const { state, setDraft, today } = useStore()
+  const nav = useNavigate()
+  const [, setParams] = useSearchParams()
+  const date = useDateParam()
+  const setDate = (d: string) => setParams({ date: d }, { replace: true })
+  const ws = weekStart(date)
+  const week = Array.from({ length: 7 }, (_, i) => addDays(ws, i))
+  const planned = state.planned.filter((p) => p.date === date).sort((a, b) => a.position - b.position)
+  const add = () => { setDraft({ date, itemIds: [], occasion: occasionLabel(state, date) }); nav(`/planner/add?date=${date}`) }
+  const wText = useWeatherText(date)
   return (
     <Screen tabs pad={false}>
       <PlannerNav />
-      <DayMonth active="Day" />
-      <div className="flex bg-surface/50 px-2.5 py-3">
-        {WEEK.map((w) => {
-          const on = w.n === sel, today = w.n === 11
+      <DayMonth active="Day" date={date} />
+      <div className="flex items-center bg-surface/50 px-1 py-3">
+        <button onClick={() => setDate(addDays(date, -7))} className="px-1 text-text/40" aria-label="Previous week"><Icon name="back" size={18} /></button>
+        {week.map((d) => {
+          const on = d === date, isToday = d === today
           return (
-            <button key={w.n} onClick={() => setSel(w.n)} className="flex flex-1 flex-col items-center gap-1.5">
-              <span className="text-[12px] text-text/50">{w.d}</span>
-              <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[17px] ${on ? 'bg-primary font-semibold text-cloud' : today ? 'font-medium text-text-muted' : 'font-medium'}`}>{w.n}</span>
-              <span className={`h-[5px] w-[5px] rounded-full ${w.outfits.length ? 'bg-text/60' : ''}`} />
+            <button key={d} onClick={() => setDate(d)} className="flex flex-1 flex-col items-center gap-1.5">
+              <span className="text-[12px] text-text/50">{dayShort(d)}</span>
+              <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[17px] ${on ? 'bg-primary font-semibold text-cloud' : isToday ? 'font-semibold text-text-muted underline underline-offset-4' : 'font-medium'}`}>{parse(d).getDate()}</span>
+              <span className={`h-[5px] w-[5px] rounded-full ${state.planned.some((p) => p.date === d) ? 'bg-text/60' : ''}`} />
             </button>
           )
         })}
+        <button onClick={() => setDate(addDays(date, 7))} className="px-1 text-text/40" aria-label="Next week"><Icon name="chev" size={18} /></button>
       </div>
       <div className="flex flex-col items-center gap-2 pt-3.5 pb-3">
-        <p className="text-[16px] font-semibold">{FULL[day.d]}, Nov {day.n}</p>
+        <p className="text-[16px] font-semibold">{fmtLong(date)}</p>
         <div className="flex items-center gap-2">
-          <span className="rounded-full border border-border px-[15px] py-[9px] text-[14px] font-medium">{WEATHER[day.n]}</span>
-          {day.outfits.length > 1 && <span className="text-[13px] font-medium text-text/55">{day.outfits.length} outfits ↓</span>}
+          <span className="rounded-full border border-border px-[15px] py-[9px] text-[14px] font-medium">{wText}</span>
+          {planned.length > 1 && <span className="text-[13px] font-medium text-text/55">{planned.length} outfits ↓</span>}
         </div>
       </div>
       <div className="relative flex flex-col items-center gap-3.5 pb-6">
-        {/* neighbors peek in from the sides; tap to switch days */}
-        {prev && <button onClick={() => setSel(prev.n)} className="absolute top-0 -left-[266px] h-[360px] w-[300px] rounded-[22px] bg-surface" aria-label="Previous day" />}
-        {next && <button onClick={() => setSel(next.n)} className="absolute top-0 -right-[266px] flex h-[360px] w-[300px] items-center rounded-[22px] bg-surface pl-3 text-[28px] text-text/40" aria-label="Next day">+</button>}
-        {day.outfits.map((o, i) => <OutfitCard key={i} o={o} />)}
-        <Link to="/planner/add" className={`flex w-[300px] items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent text-[15px] font-medium text-text/70 ${day.outfits.length ? 'h-14' : 'h-[360px]'}`}>
-          + {day.outfits.length ? 'Add another outfit' : 'Plan this day'}
-        </Link>
+        <button onClick={() => setDate(addDays(date, -1))} className="absolute top-0 -left-[266px] h-[360px] w-[300px] rounded-[22px] bg-surface" aria-label="Previous day" />
+        <button onClick={() => setDate(addDays(date, 1))} className="absolute top-0 -right-[266px] flex h-[360px] w-[300px] items-center rounded-[22px] bg-surface pl-3 text-[28px] text-text/40" aria-label="Next day">›</button>
+        {planned.length ? planned.map((p) => <PlannedCard key={p.id} p={p} />) : <SuggestionCard date={date} />}
+        <button onClick={add} className="flex h-14 w-[300px] items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent text-[15px] font-medium text-text/70">
+          + {planned.length ? 'Add another outfit' : 'Build my own'}
+        </button>
       </div>
     </Screen>
   )
 }
 
 /* ---------------- Month ---------------- */
-const MONTH_PLANNED: Record<number, GarmentKind[]> = { 8: ['top', 'jeans'], 9: ['knit', 'bottom'], 10: ['dress'], 11: ['top', 'jeans'], 12: ['outerwear', 'bottom'] }
 export function PlannerMonth() {
+  const { state, setDraft, today } = useStore()
   const nav = useNavigate()
-  const cells = Array.from({ length: 35 }, (_, i) => i + 1)
+  const [params, setParams] = useSearchParams()
+  const m = params.get('m') ?? today.slice(0, 7)
+  const [y, mo] = m.split('-').map(Number)
+  const first = iso(new Date(y, mo - 1, 1))
+  const start = weekStart(first)
+  const daysInMonth = new Date(y, mo, 0).getDate()
+  const weeks = Math.ceil((parse(first).getDay() + daysInMonth) / 7)
+  const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i))
+  const shift = (n: number) => { const d = new Date(y, mo - 1 + n, 1); setParams({ m: iso(d).slice(0, 7) }, { replace: true }) }
   return (
     <Screen tabs pad={false}>
       <PlannerNav />
-      <DayMonth active="Month" />
+      <DayMonth active="Month" date={today.slice(0, 7) === m ? today : first} />
       <div className="flex flex-col gap-1.5 px-4 pt-3.5">
-        <p className="text-center text-[17px] font-semibold">November 2026</p>
-        <div className="grid grid-cols-7 gap-1.5 pt-1.5 text-center text-[12px] text-text/50">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => <span key={d}>{d}</span>)}
+        <div className="flex items-center justify-between">
+          <button onClick={() => shift(-1)} aria-label="Previous month" className="p-1"><Icon name="back" size={20} /></button>
+          <p className="text-[17px] font-semibold">{monthTitle(y, mo - 1)}</p>
+          <button onClick={() => shift(1)} aria-label="Next month" className="p-1"><Icon name="chev" size={20} /></button>
         </div>
+        <div className="grid grid-cols-7 gap-1.5 pt-1.5 text-center text-[12px] text-text/50">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => <span key={d}>{d}</span>)}</div>
         <div className="grid grid-cols-7 gap-x-1.5 gap-y-1">
-          {cells.map((c) => {
-            const inMonth = c <= 30, n = inMonth ? c : c - 30
-            const p = inMonth ? MONTH_PLANNED[n] : undefined
+          {cells.map((d) => {
+            const inMonth = d.slice(0, 7) === m
+            const p = state.planned.filter((x) => x.date === d).sort((a, b) => a.position - b.position)[0]
+            const ids = p ? state.outfits.find((o) => o.id === p.outfitId)?.itemIds ?? [] : []
+            const isToday = d === today
             return (
-              <div key={c} className="flex flex-col items-center gap-1 border-t border-border pt-1">
-                <span className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] font-medium ${inMonth && n === 12 ? 'bg-primary text-cloud' : !inMonth ? 'text-text/30' : n === 11 ? 'text-text-muted' : ''}`}>{n}</span>
+              <div key={d} className="flex flex-col items-center gap-1 border-t border-border pt-1">
+                <span className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] font-medium ${isToday ? 'bg-primary text-cloud' : !inMonth ? 'text-text/30' : ''}`}>{parse(d).getDate()}</span>
                 {inMonth ? (
-                  <button onClick={() => nav(p ? '/planner' : '/planner/add')} className={`flex h-[62px] w-full flex-col items-center justify-center rounded-sm ${p ? 'bg-surface' : 'bg-soft text-[22px] text-text/45'} ${n === 12 ? 'border-[1.5px] border-primary' : ''}`}>
-                    {p ? p.map((k, i) => <Garment key={i} kind={k} size={p.length > 1 ? 26 : 40} />) : '+'}
+                  <button onClick={() => { if (p) nav(`/planner?date=${d}`); else { setDraft({ date: d, itemIds: [], occasion: occasionLabel(state, d) }); nav(`/planner/add?date=${d}`) } }}
+                    className={`flex h-[62px] w-full flex-col items-center justify-center overflow-hidden rounded-sm ${p ? 'bg-surface' : 'bg-soft text-[22px] text-text/45'}`}>
+                    {p ? <Thumbs itemIds={ids} size={ids.length > 2 ? 20 : 26} max={3} bg={false} /> : '+'}
                   </button>
                 ) : <span className="h-[62px]" />}
               </div>
@@ -155,88 +187,139 @@ export function PlannerMonth() {
 }
 
 /* ---------------- Add outfit ---------------- */
-const PICK: [GarmentKind, boolean][] = [['top', false], ['knit', true], ['jeans', false], ['bottom', true], ['outerwear', true], ['dress', false], ['shoes', true], ['top', false], ['jeans', false], ['knit', false], ['dress', false], ['bottom', false]]
+function ItemGrid({ selected, onToggle, category, leading }: { selected: string[]; onToggle: (id: string) => void; category: Category | 'all'; leading?: React.ReactNode }) {
+  const { state } = useStore()
+  const items = state.items.filter((i) => i.status === 'active' && i.tagged && (category === 'all' || i.category === category))
+  return (
+    <div className="grid grid-cols-3 gap-2.5">
+      {leading}
+      {items.map((it) => {
+        const on = selected.includes(it.id)
+        return (
+          <button key={it.id} onClick={() => onToggle(it.id)} className="relative flex aspect-[1.08] items-center justify-center">
+            <ItemImage item={it} size={92} />
+            <span className={`absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] ${on ? 'border-primary bg-primary text-cloud' : 'border-accent bg-bg/60'}`}>{on && <Icon name="check" size={15} strokeWidth={2.4} />}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+const CAT_CHIPS: (Category | 'all')[] = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory']
+function CatChips({ value, onChange }: { value: Category | 'all'; onChange: (c: Category | 'all') => void }) {
+  return <div className="no-scrollbar flex gap-2 overflow-x-auto">{CAT_CHIPS.map((c) => <Chip key={c} label={c === 'all' ? 'All' : CATEGORY_LABEL[c]} selected={value === c} onClick={() => onChange(c)} />)}</div>
+}
+
+/** Keeps a draft in the store while moving between Add outfit, Canvas, Add clothes and Details. */
+function useDraft() {
+  const { state, setDraft, today } = useStore()
+  const [params] = useSearchParams()
+  const date = params.get('date') ?? state.draft?.date ?? today
+  useEffect(() => { if (!state.draft || state.draft.date !== date) setDraft({ date, itemIds: [], occasion: occasionLabel(state, date) }) }, [date]) // eslint-disable-line react-hooks/exhaustive-deps
+  const draft = state.draft && state.draft.date === date ? state.draft : { date, itemIds: [] as string[], occasion: occasionLabel(state, date) }
+  const toggle = (id: string) => setDraft({ ...draft, itemIds: draft.itemIds.includes(id) ? draft.itemIds.filter((x) => x !== id) : [...draft.itemIds, id], layout: draft.layout?.filter((l) => l.itemId !== id) })
+  return { draft, setDraft, toggle }
+}
+
 export function AddOutfit() {
-  const [count, setCount] = useState(PICK.filter(([, s]) => s).length)
+  const { state, suggestFor } = useStore()
+  const nav = useNavigate()
+  const { draft, setDraft, toggle } = useDraft()
+  const [cat, setCat] = useState<Category | 'all'>('all')
+  const [panel, setPanel] = useState<'favorites' | 'recent' | null>(null)
+  const favorites = state.outfits.filter((o) => o.isFavorite && o.itemIds.length)
+  const recentIds = [...new Set(state.wear.slice().reverse().map((w) => w.outfitId).filter(Boolean))].slice(0, 9) as string[]
+  const recent = recentIds.map((id) => state.outfits.find((o) => o.id === id)).filter(Boolean) as typeof favorites
+  const useSuggested = () => { const s = suggestFor(draft.date); setDraft({ ...draft, itemIds: s.itemIds, layout: undefined, reason: s.reason, suggested: true, occasion: draft.occasion ?? s.occasion }); nav('/planner/canvas') }
+  const list = panel === 'favorites' ? favorites : recent
+  const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
   return (
     <Screen pad={false}>
       <div className="flex items-center px-5 pt-1 pb-2">
         <div className="w-[100px]"><CircleButton /></div>
-        <h1 className="display flex-1 text-center text-[24px]">Add outfit</h1>
-        <div className="flex w-[100px] justify-end"><Pill><Icon name="calendar" size={18} />Nov 12</Pill></div>
+        <h1 className="display flex-1 text-center text-[24px]">{draft.editingId ? 'Edit outfit' : 'Add outfit'}</h1>
+        <div className="flex w-[100px] justify-end"><Pill><Icon name="calendar" size={18} />{fmtShort(draft.date).split(', ')[1]}</Pill></div>
       </div>
       <div className="grid grid-cols-3 gap-2.5 px-5 pt-2">
-        {[['Suggested', 'spark', '/planner/canvas'], ['Saved outfits', 'hanger', ''], ['Outfit photo', 'camera', '']].map(([l, i, to]) => (
-          <Card key={l} to={to || undefined} className="flex flex-col items-center gap-2 py-4"><Icon name={i} size={24} /><span className="text-[13px] font-medium">{l}</span></Card>
+        {([['Suggested', 'spark', useSuggested], ['Favorites', 'heart', () => setPanel(panel === 'favorites' ? null : 'favorites')], ['Recent', 'calendar', () => setPanel(panel === 'recent' ? null : 'recent')]] as const).map(([l, i, f]) => (
+          <Card key={l} onClick={f} className={`flex flex-col items-center gap-2 py-4 ${panel === l.toLowerCase() ? 'ring-[1.5px] ring-primary' : ''}`}><Icon name={i} size={24} /><span className="text-[13px] font-medium">{l}</span></Card>
         ))}
       </div>
-      <div className="flex items-center gap-2 px-5 pt-3.5 pb-2">
-        <div className="min-w-0 flex-1"><ChipGroup options={['All', 'Tops', 'Bottoms', 'Shoes', 'Outerwear', 'Dresses']} initial={['All']} wrap={false} /></div>
-        <CircleButton icon="filter" onClick={() => {}} />
-      </div>
-      <div className="grid flex-1 grid-cols-3 gap-2.5 px-4 pb-4">
-        {PICK.map(([k, s], i) => <SelectTile key={i} kind={k} initial={s} onChange={(v) => setCount((c) => c + (v ? 1 : -1))} />)}
+      {panel && (
+        <div className="no-scrollbar flex gap-2 overflow-x-auto px-5 pt-3">
+          {list.length ? list.map((o) => (
+            <button key={o.id} onClick={() => { setDraft({ ...draft, itemIds: o.itemIds, layout: o.layout }); nav('/planner/canvas') }} className="shrink-0 rounded-md bg-surface p-2"><Thumbs itemIds={o.itemIds} size={30} bg={false} /></button>
+          )) : <p className="text-[13px] text-text-muted">{panel === 'favorites' ? 'No favorites yet — turn on “Save to favorites” when you save an outfit.' : 'Nothing worn yet — tap “Wore it” on Home.'}</p>}
+        </div>
+      )}
+      <div className="px-5 pt-3.5 pb-2"><CatChips value={cat} onChange={setCat} /></div>
+      <div className="flex-1 px-4 pb-4">
+        {hasCloset ? <ItemGrid selected={draft.itemIds} onToggle={toggle} category={cat} /> : <Empty title="Your closet is empty" body="Add pieces first, then build outfits from them." action={<Button to="/closet/add">Add pieces</Button>} />}
       </div>
       <div className="sticky bottom-0 flex items-center justify-between border-t border-border bg-bg px-5 py-3">
-        <span className="text-[16px] font-medium">{count} selected</span>
-        <Button full={false} to="/planner/canvas">Next</Button>
+        <span className="text-[16px] font-medium">{draft.itemIds.length} selected</span>
+        <Button full={false} onClick={() => draft.itemIds.length && nav('/planner/canvas')}>Next</Button>
       </div>
     </Screen>
   )
 }
 
-/* ---------------- Canvas (drag to arrange) ---------------- */
-type Placed = { kind: GarmentKind; x: number; y: number; s: number }
+/* ---------------- Canvas (drag to arrange; layout is saved with the outfit) ---------------- */
 export function Canvas() {
+  const { state } = useStore()
   const nav = useNavigate()
-  const [items, setItems] = useState<Placed[]>([
-    { kind: 'outerwear', x: 18, y: 80, s: 190 }, { kind: 'knit', x: 190, y: 150, s: 160 }, { kind: 'bottom', x: 60, y: 280, s: 220 }, { kind: 'shoes', x: 220, y: 440, s: 120 },
-  ])
-  const drag = useRef<{ i: number; dx: number; dy: number } | null>(null)
+  const { draft, setDraft } = useDraft()
+  const items = draft.itemIds.map((id) => state.items.find((i) => i.id === id)).filter(Boolean) as Item[]
+  const base = (draft.layout?.length ? draft.layout : []).filter((l) => items.some((i) => i.id === l.itemId))
+  const missing = items.filter((i) => !base.some((b) => b.itemId === i.id))
+  const initial: Placed[] = [...base, ...autoLayout(missing).map((p) => ({ ...p, x: p.x * 1.25, y: p.y * 1.25 + 40, s: p.s * 1.25 }))]
+  const [placed, setPlaced] = useState<Placed[]>(initial)
+  useEffect(() => { setPlaced(initial) }, [draft.itemIds.join()]) // eslint-disable-line react-hooks/exhaustive-deps
+  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null)
   const area = useRef<HTMLDivElement>(null)
   const move = (e: React.PointerEvent) => {
     if (!drag.current || !area.current) return
     const r = area.current.getBoundingClientRect()
-    const z = r.width / area.current.offsetWidth || 1 // phone may be zoomed to fit the window
-    const { i, dx, dy } = drag.current
-    setItems((its) => its.map((it, j) => (j === i ? { ...it, x: (e.clientX - r.left) / z - dx, y: (e.clientY - r.top) / z - dy } : it)))
+    const z = r.width / area.current.offsetWidth || 1
+    const { id, dx, dy } = drag.current
+    setPlaced((ps) => ps.map((p) => (p.itemId === id ? { ...p, x: (e.clientX - r.left) / z - dx, y: (e.clientY - r.top) / z - dy } : p)))
   }
+  const keep = () => setDraft({ ...draft, layout: placed })
   return (
     <Screen dark pad={false}>
-      <div ref={area} onPointerMove={move} onPointerUp={() => (drag.current = null)} className="relative mx-0 h-[630px] shrink-0 touch-none overflow-hidden rounded-[28px] bg-bg">
-        <CircleButton className="absolute top-[18px] left-[18px] z-10 !bg-cloud" />
-        <button onClick={() => nav('/planner/details')} className="absolute top-[18px] right-[18px] z-10 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-[15px] font-semibold text-cloud">Next <Icon name="arrow" size={18} /></button>
-        {items.map((it, i) => (
-          <div
-            key={i}
-            onPointerDown={(e) => {
-              const el = e.currentTarget as HTMLElement
-              const r = el.getBoundingClientRect()
-              const z = r.width / el.offsetWidth || 1
-              drag.current = { i, dx: (e.clientX - r.left) / z, dy: (e.clientY - r.top) / z }
-              setItems((its) => [...its.filter((_, j) => j !== i), its[i]])
-              drag.current.i = items.length - 1
-            }}
-            className="absolute cursor-grab active:cursor-grabbing"
-            style={{ left: it.x, top: it.y }}
-          >
-            <Garment kind={it.kind} size={it.s} />
-          </div>
-        ))}
-        <p className="absolute inset-x-0 bottom-3 text-center text-[12px] text-text/45">Drag to arrange · pinch to resize</p>
+      <div ref={area} onPointerMove={move} onPointerUp={() => { drag.current = null; keep() }} className="relative h-[630px] shrink-0 touch-none overflow-hidden rounded-[28px] bg-bg">
+        <CircleButton className="absolute top-[18px] left-[18px] z-10 !bg-cloud" onClick={() => { keep(); nav(-1) }} />
+        <button onClick={() => { keep(); nav('/planner/details') }} className="absolute top-[18px] right-[18px] z-10 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-[15px] font-semibold text-cloud">Next <Icon name="arrow" size={18} /></button>
+        {placed.map((p) => {
+          const it = items.find((i) => i.id === p.itemId)
+          if (!it) return null
+          return (
+            <div key={p.itemId} className="absolute cursor-grab active:cursor-grabbing" style={{ left: p.x, top: p.y }}
+              onPointerDown={(e) => {
+                const el = e.currentTarget as HTMLElement
+                const r = el.getBoundingClientRect(); const z = r.width / el.offsetWidth || 1
+                drag.current = { id: p.itemId, dx: (e.clientX - r.left) / z, dy: (e.clientY - r.top) / z }
+                setPlaced((ps) => [...ps.filter((x) => x.itemId !== p.itemId), p])
+              }}>
+              <ItemImage item={it} size={p.s} />
+            </div>
+          )
+        })}
+        {!items.length && <p className="absolute inset-x-0 top-1/2 text-center text-[14px] text-text/55">Tap “Add clothes” to start</p>}
+        <p className="absolute inset-x-0 bottom-3 text-center text-[12px] text-text/45">Drag to arrange</p>
       </div>
       <div className="px-4 pt-3">
-        <button onClick={() => nav('/planner/add-clothes')} className="flex w-full flex-col items-center gap-1.5 rounded-md bg-primary-2 py-3 text-[12px] font-medium text-cloud"><Icon name="addTop" />Add clothes</button>
+        <button onClick={() => { keep(); nav('/planner/add-clothes') }} className="flex w-full flex-col items-center gap-1.5 rounded-md bg-primary-2 py-3 text-[12px] font-medium text-cloud"><Icon name="addTop" />Add clothes</button>
       </div>
     </Screen>
   )
 }
 
 /* ---------------- Add clothes (sheet over the dimmed canvas) ---------------- */
-const SHEET: GarmentKind[] = ['top', 'knit', 'jeans', 'dress', 'top', 'bottom', 'knit', 'shoes', 'outerwear', 'jeans', 'dress']
 export function AddClothes() {
   const nav = useNavigate()
-  const [count, setCount] = useState(1)
+  const { draft, toggle } = useDraft()
+  const [cat, setCat] = useState<Category | 'all'>('all')
   return (
     <Screen dark pad={false}>
       <div className="flex h-[110px] shrink-0 items-start justify-between rounded-t-[28px] bg-[#8D857B] p-[18px] opacity-80">
@@ -245,13 +328,13 @@ export function AddClothes() {
       </div>
       <div className="-mt-3 flex min-h-0 flex-1 flex-col rounded-t-[26px] bg-bg">
         <div className="flex justify-center pt-2.5 pb-3"><span className="h-[5px] w-10 rounded-full bg-border" /></div>
-        <div className="px-4 pb-3"><ChipGroup options={['All', 'Tops', 'Bottoms', 'Shoes', 'Outerwear', 'Dresses']} initial={['All']} wrap={false} /></div>
-        <div className="no-scrollbar grid flex-1 grid-cols-3 gap-2.5 overflow-y-auto px-4">
-          <Link to="/closet/add" className="flex aspect-[1.08] items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent bg-cloud"><Icon name="plus" /></Link>
-          {SHEET.map((k, i) => <SelectTile key={i} kind={k} initial={i === 2} onChange={(v) => setCount((c) => c + (v ? 1 : -1))} />)}
+        <div className="px-4 pb-3"><CatChips value={cat} onChange={setCat} /></div>
+        <div className="no-scrollbar flex-1 overflow-y-auto px-4">
+          <ItemGrid selected={draft.itemIds} onToggle={toggle} category={cat}
+            leading={<Link to="/closet/add" className="flex aspect-[1.08] items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent bg-cloud"><Icon name="plus" /></Link>} />
         </div>
         <div className="flex items-center justify-between border-t border-border px-5 py-3">
-          <span className="text-[16px] font-medium">{count} selected</span>
+          <span className="text-[16px] font-medium">{draft.itemIds.length} selected</span>
           <Button full={false} onClick={() => nav(-1)}>Done</Button>
         </div>
       </div>
@@ -260,74 +343,119 @@ export function AddClothes() {
 }
 
 /* ---------------- Outfit details ---------------- */
+const OCCASIONS = ['Work day', 'Off day', ...ACTIVITIES]
 export function OutfitDetails() {
-  const rows: [string, string, string | null][] = [['calendar', 'Date', 'Thu, Nov 12'], ['brief', 'Day', 'Work · 9–5'], ['rain', 'Weather', '42° / 35° · rain']]
+  const { state, plan, setDraft, weatherFor } = useStore()
+  const nav = useNavigate()
+  const { draft } = useDraft()
+  const [date, setDate] = useState(draft.date)
+  const base = draft.occasion?.startsWith('Work day') ? 'Work day' : draft.occasion?.split(' · ')[0] ?? 'Work day'
+  const [occ, setOcc] = useState(OCCASIONS.includes(base) ? base : 'Off day')
+  const [note, setNote] = useState(draft.note ?? '')
+  const existing = draft.editingId ? state.planned.find((p) => p.id === draft.editingId) : undefined
+  const [fav, setFav] = useState(existing ? !!state.outfits.find((o) => o.id === existing.outfitId)?.isFavorite : false)
+  const w = weatherFor(date)
+  const save = () => {
+    const occasion = occ === 'Work day' ? `Work day · ${state.profile.workHours}` : occ
+    plan({ date, itemIds: draft.itemIds, layout: draft.layout, occasion, note, reason: draft.reason, suggested: draft.suggested, editingId: date === draft.date ? draft.editingId : undefined, favorite: fav })
+    setDraft(undefined)
+    nav(`/planner?date=${date}`, { replace: true })
+  }
   return (
     <Screen>
-      <div className="flex items-center">
-        <div className="w-20"><CircleButton /></div>
-        <h1 className="display flex-1 text-center text-[24px]">New outfit</h1>
-        <div className="w-20" />
-      </div>
-      <div className="flex justify-center pt-3.5">
-        <div className="relative h-[280px] w-[210px] rounded-[18px] bg-surface"><Collage kinds={['outerwear', 'knit', 'bottom', 'shoes']} scale={0.72} /></div>
-      </div>
-      <input placeholder="Add a note…" className="mt-3.5 bg-transparent text-[16px] outline-none placeholder:text-text/45" />
+      <div className="flex items-center"><div className="w-20"><CircleButton /></div><h1 className="display flex-1 text-center text-[24px]">{draft.editingId ? 'Edit outfit' : 'New outfit'}</h1><div className="w-20" /></div>
+      <div className="flex justify-center pt-3.5"><div className="relative h-[280px] w-[210px] overflow-hidden rounded-[18px] bg-surface"><Collage itemIds={draft.itemIds} layout={draft.layout} width={210 * 0.8} scale={1} /></div></div>
+      <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note…" className="mt-3.5 bg-transparent text-[16px] outline-none placeholder:text-text/45" />
       <div className="mt-2">
-        {rows.map(([i, l, v]) => (
-          <div key={l} className="flex items-center gap-3.5 border-b border-border py-3.5">
-            <Icon name={i} size={24} /><span className="flex-1 text-[16px] font-medium">{l}</span><span className="text-[15px] font-semibold">{v}</span>
-            {l !== 'Weather' && <Icon name="chev" size={20} />}
-          </div>
-        ))}
-        <div className="flex items-center gap-3.5 border-b border-border py-3.5"><Icon name="heart" size={24} /><span className="flex-1 text-[16px] font-medium">Save to favorites</span><Toggle initial /></div>
-        <div className="flex items-center gap-3.5 py-3.5"><Icon name="lock" size={24} /><div className="flex-1"><p className="text-[16px] font-medium">Private to you</p><p className="text-[13px] text-text-muted">Only you can see your outfits</p></div></div>
+        <label className="flex items-center gap-3.5 border-b border-border py-3.5"><Icon name="calendar" size={24} /><span className="flex-1 text-[16px] font-medium">Date</span>
+          <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className="bg-transparent text-right text-[15px] font-semibold outline-none" /></label>
+        <div className="flex flex-col gap-2 border-b border-border py-3.5"><span className="flex items-center gap-3.5 text-[16px] font-medium"><Icon name="brief" size={24} />Occasion</span>
+          <div className="no-scrollbar flex gap-2 overflow-x-auto">{OCCASIONS.map((o) => <Chip key={o} small label={o} selected={occ === o} onClick={() => setOcc(o)} />)}</div></div>
+        <div className="flex items-center gap-3.5 border-b border-border py-3.5"><Icon name="rain" size={24} /><span className="flex-1 text-[16px] font-medium">Weather</span><span className="text-[15px] font-semibold">{w ? `${deg(w.high, state.profile.unit)} / ${deg(w.low, state.profile.unit)}${isRainy(w) ? ' · rain' : ''}` : '—'}</span></div>
+        <div className="flex items-center gap-3.5 border-b border-border py-3.5"><Icon name="heart" size={24} /><span className="flex-1 text-[16px] font-medium">Save to favorites</span><Toggle initial={fav} onChange={setFav} /></div>
+        <div className="flex items-center gap-3.5 py-3.5"><Icon name="lock" size={24} /><div className="flex-1"><p className="text-[16px] font-medium">Private to you</p><p className="text-[13px] text-text-muted">Saved on this device only</p></div></div>
       </div>
       <div className="flex-1" />
-      <Button to="/planner">Save outfit</Button>
+      <Button onClick={save}>{draft.editingId ? 'Save changes' : 'Save outfit'}</Button>
     </Screen>
   )
 }
 
-/* ---------------- Off day ---------------- */
+/* ---------------- Off day / day type ---------------- */
 export function OffDay() {
+  const { state, setDay, weatherFor } = useStore()
+  const nav = useNavigate()
+  const date = useDateParam()
+  const info = dayInfo(state, date)
+  const [type, setType] = useState(info.dayType)
+  const [acts, setActs] = useState<Activity[]>(info.activities)
+  const w = weatherFor(date)
+  const toggle = (a: Activity) => setActs(acts.includes(a) ? acts.filter((x) => x !== a) : [...acts, a])
   return (
     <Screen tabs>
       <div className="flex flex-1 flex-col gap-4">
         <BackBar />
-        <Header eyebrow="Saturday, Nov 14 · Off day" title="What are you up to?" body="Pick everything you’ve got planned. We’ll dress you for the dressiest one." />
-        <ChipGroup options={['Brunch', 'Errands', 'Going out', 'Gym', 'Lounging', 'Game day']} initial={['Brunch', 'Errands']} multi />
-        <Card><p className="text-[15px] font-medium">58° / 44° · Sunny</p><p className="text-[13px] text-text-muted">Light layer for the evening</p></Card>
+        <Header eyebrow={`${fmtShort(date)} · ${type === 'work' ? 'Work day' : 'Off day'}`} title={type === 'work' ? 'A work day' : 'What are you up to?'} body={type === 'work' ? `Outfits use your work pieces (${state.profile.workHours}).` : 'Pick everything you’ve got planned. We’ll dress you for the dressiest one.'} />
+        <div className="flex gap-2"><Chip label="Work day" selected={type === 'work'} onClick={() => setType('work')} /><Chip label="Off day" selected={type === 'off'} onClick={() => setType('off')} /></div>
+        {type === 'off' && <div className="flex flex-wrap gap-2">{ACTIVITIES.map((a) => <Chip key={a} label={a} selected={acts.includes(a)} onClick={() => toggle(a)} />)}</div>}
+        {w && <Card><p className="text-[15px] font-medium">{deg(w.high, state.profile.unit)} / {deg(w.low, state.profile.unit)} · {isRainy(w) ? 'rain' : condition(w.code)}</p><p className="text-[13px] text-text-muted">{w.high < 50 ? 'Bring a layer' : w.high >= 75 ? 'Keep it light' : 'Mild day'}</p></Card>}
         <div className="flex-1" />
-        <Button to="/planner">Get my outfit</Button>
-        <Button variant="text">Make this a work day</Button>
+        <Button onClick={() => { setDay(date, type, type === 'off' ? acts : []); nav(`/planner?date=${date}`, { replace: true }) }}>Get my outfit</Button>
       </div>
     </Screen>
   )
 }
 
-/* ---------------- Plan the week ---------------- */
+/* ---------------- Plan the week (Mon–Fri, no repeats) ---------------- */
 export function PlanWeek() {
-  const days: [string, string, GarmentKind[]][] = [
-    ['MON 16', '45°', ['knit', 'bottom', 'shoes', 'outerwear']], ['TUE 17', '48°', ['top', 'jeans', 'shoes', 'outerwear']], ['WED 18', '39° · rain', ['dress', 'outerwear', 'shoes', 'knit']],
-    ['THU 19', '44°', ['knit', 'jeans', 'shoes', 'outerwear']], ['FRI 20', '51°', ['top', 'bottom', 'shoes', 'dress']],
-  ]
+  const { state, suggestFor, plan, setDraft, today, weatherFor } = useStore()
+  const nav = useNavigate()
+  const d = parse(today).getDay()
+  const mon = monday(d === 0 || d === 6 ? addDays(today, d === 6 ? 2 : 1) : today)
+  const dates = [0, 1, 2, 3, 4].map((i) => addDays(mon, i))
+  const used = new Set<string>()
+  const rows = dates.map((date) => {
+    const p = state.planned.filter((x) => x.date === date).sort((a, b) => a.position - b.position)[0]
+    let ids = p ? state.outfits.find((o) => o.id === p.outfitId)?.itemIds ?? [] : suggestFor(date, new Set(used)).itemIds
+    // Not enough pieces left for a fresh outfit → reuse the least-recently-worn ones rather than leave the day empty.
+    if (!p && (ids.length < 2 || !ids.some((id) => state.items.find((i) => i.id === id)?.category === 'shoes'))) {
+      const catOf = (id: string) => state.items.find((i) => i.id === id)?.category
+      const have = new Set(ids.map(catOf))
+      const hasBody = have.has('dress') || (have.has('top') && have.has('bottom'))
+      const fallback = suggestFor(date).itemIds
+      ids = hasBody ? [...ids, ...fallback.filter((id) => !have.has(catOf(id)) && !['top', 'bottom', 'dress'].includes(catOf(id) ?? ''))] : fallback
+    }
+    const repeat = ids.some((id) => used.has(id))
+    ids.forEach((id) => used.add(id))
+    return { date, p, ids, repeat }
+  })
+  const anyRepeat = rows.some((r) => r.repeat)
+  const saveAll = () => { rows.forEach((r) => { if (!r.p && r.ids.length) plan({ date: r.date, itemIds: r.ids, occasion: occasionLabel(state, r.date), suggested: true, reason: 'Planned with the week — no repeats Mon–Fri.' }) }); nav(`/planner?date=${mon}`) }
+  const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
   return (
     <Screen tabs>
       <div className="flex flex-1 flex-col gap-3">
         <BackBar />
         <Header eyebrow="Sunday planning" title="Plan your work week" />
-        <p className="rounded-[10px] bg-soft px-3.5 py-2.5 text-[13px] font-medium">✓ No piece repeats Monday to Friday</p>
-        {days.map(([d, t, ks]) => (
-          <Card key={d} className="flex items-center gap-3 p-3">
-            <div className="w-[70px]"><p className="text-[13px] font-semibold">{d}</p><p className="text-[12px] text-text-muted">{t}</p></div>
-            <div className="flex flex-1 gap-1.5">{ks.map((k, i) => <span key={i} className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-bg"><Garment kind={k} size={30} /></span>)}</div>
-            <Link to="/planner/add" className="text-[13px] font-medium text-text/70">Edit</Link>
-          </Card>
-        ))}
-        <div className="flex-1" />
-        <Button to="/planner">Save the week</Button>
+        {!hasCloset ? <Empty title="Add pieces first" body="Capsule plans the week from what’s in your closet." action={<Button to="/closet/add">Add pieces</Button>} /> : (
+          <>
+            <p className="rounded-[10px] bg-soft px-3.5 py-2.5 text-[13px] font-medium">{anyRepeat ? 'Some pieces repeat — add more work pieces for a no-repeat week.' : rows.some((r) => !r.ids.length) ? 'Not enough work pieces yet to fill the week.' : '✓ No piece repeats Monday to Friday'}</p>
+            {rows.map((r) => {
+              const w = weatherFor(r.date)
+              return (
+                <Card key={r.date} className="flex items-center gap-3 p-3">
+                  <div className="w-[70px]"><p className="text-[13px] font-semibold">{dayShort(r.date).toUpperCase()} {parse(r.date).getDate()}</p><p className="text-[12px] text-text-muted">{w ? `${deg(w.high, state.profile.unit)}${isRainy(w) ? ' · rain' : ''}` : ''}{r.p ? ' · saved' : ''}</p></div>
+                  <div className="flex flex-1 gap-1.5 overflow-hidden">{r.ids.slice(0, 4).map((id) => { const it = state.items.find((i) => i.id === id); return it ? <span key={id} className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-bg"><ItemImage item={it} size={32} /></span> : null })}</div>
+                  <button onClick={() => { setDraft({ date: r.date, itemIds: r.ids, editingId: r.p?.id, occasion: occasionLabel(state, r.date) }); nav(`/planner/add?date=${r.date}`) }} className="text-[13px] font-medium text-text/70">Edit</button>
+                </Card>
+              )
+            })}
+            <div className="flex-1" />
+            <Button onClick={saveAll}>Save the week</Button>
+          </>
+        )}
       </div>
     </Screen>
   )
 }
+

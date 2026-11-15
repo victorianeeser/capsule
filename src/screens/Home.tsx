@@ -1,69 +1,84 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Card, Eyebrow, Garment, type GarmentKind, Heading, Icon, Screen, Title, WeatherPill } from '../ui'
-import { TOMORROW } from '../data'
+import { Button, Card, Eyebrow, Heading, Icon, Screen, Title, WeatherPill } from '../ui'
+import { useStore } from '../lib/store'
+import { dayName, fmtShort, greeting, monday, addDays } from '../lib/dates'
+import { condition, deg, isRainy } from '../lib/weather'
+import { ItemImage, Thumbs, Empty } from '../components'
+import type { Item } from '../lib/types'
 
-function HomeHeader({ greeting, date, weather }: { greeting: string; date: string; weather: ReactNode }) {
+function HomeHeader({ title, date }: { title: string; date: string }) {
+  const { state, forecast, weatherFor, today } = useStore()
+  const unit = state.profile.unit
+  const t = weatherFor(today)
+  const h = new Date().getHours()
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <Eyebrow className="flex-1">{date}</Eyebrow>
-        <Link to="/settings" aria-label="Settings" className="flex h-9 w-9 items-center justify-center rounded-full bg-surface">
-          <Icon name="sliders" size={20} />
-        </Link>
+        <Eyebrow className="min-w-0 flex-1 truncate">{fmtShort(date)} · {state.profile.city}</Eyebrow>
+        {forecast && t && <WeatherPill icon={h >= 18 || h < 6 ? 'moon' : 'sun'} now={deg(forecast.current, unit)} hl={`H:${deg(t.high, unit)} L:${deg(t.low, unit)}`} />}
+        <Link to="/settings" aria-label="Settings" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface"><Icon name="sliders" size={20} /></Link>
       </div>
-      <div className="flex items-center justify-between gap-3">
-        <Title className="whitespace-nowrap">{greeting}</Title>
-        {weather}
-      </div>
+      <Title className="whitespace-nowrap">{title}</Title>
     </div>
   )
 }
 
-/** The main outfit card on Home: when, weather, day type, the outfit, a reason line and two actions. */
-function OutfitCard({ when, weather, kinds, reason, actions }: { when: string; weather: string; kinds: GarmentKind[]; reason: string; actions: ReactNode }) {
+/** Today's / tomorrow's outfit: planned if there is one, otherwise a live suggestion from the rules. */
+function useDayOutfit(date: string) {
+  const { state, suggestFor } = useStore()
+  const planned = state.planned.filter((p) => p.date === date).sort((a, b) => a.position - b.position)
+  const first = planned[0]
+  const outfit = first ? state.outfits.find((o) => o.id === first.outfitId) : undefined
+  const sug = first ? undefined : suggestFor(date)
+  return { planned, first, outfit, itemIds: outfit?.itemIds ?? sug?.itemIds ?? [], reason: first?.reason ?? sug?.reason ?? '', missing: sug?.missing ?? [], occasion: first?.occasion ?? sug?.occasion ?? '' }
+}
+
+function OutfitCard({ when, weather, occasion, date, itemIds, reason, missing, actions }: { when: string; weather: string; occasion: string; date: string; itemIds: string[]; reason: string; missing: string[]; actions: ReactNode }) {
+  const { state, addGap } = useStore()
+  const items = itemIds.map((id) => state.items.find((i) => i.id === id)).filter(Boolean) as Item[]
   return (
     <Card className="flex flex-col gap-3 p-[18px]">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <Eyebrow className="text-[11px]">{when}</Eyebrow>
           <p className="text-[15px] font-medium">{weather}</p>
         </div>
-        <Link to="/planner/off-day" className="rounded-full bg-primary px-[15px] py-[9px] text-[14px] font-medium text-cloud">Work day</Link>
+        <Link to={`/planner/off-day?date=${date}`} className="shrink-0 rounded-full bg-primary px-[15px] py-[9px] text-[14px] font-medium text-cloud">{occasion}</Link>
       </div>
-      <div className="flex justify-center gap-1.5 rounded-md bg-cloud py-3">
-        {kinds.map((k) => <Garment key={k} kind={k} size={70} />)}
-      </div>
-      <p className="text-[13px] leading-[1.4] text-text/70">{reason}</p>
+      {items.length > 0 && (
+        <div className="no-scrollbar flex justify-center gap-1.5 overflow-x-auto rounded-md bg-cloud py-3">
+          {items.map((it) => <ItemImage key={it.id} item={it} size={items.length > 4 ? 56 : 70} />)}
+        </div>
+      )}
+      {reason && <p className="text-[13px] leading-[1.4] text-text/70">{reason}</p>}
+      {missing.length > 0 && (
+        <p className="text-[13px] leading-[1.4] text-text/70">
+          Missing {missing.join(', ')} for this.{' '}
+          <button className="font-semibold underline" onClick={() => missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' }))}>Add to Gaps</button>
+        </p>
+      )}
       <div className="flex gap-2.5">{actions}</div>
     </Card>
   )
 }
 
-/** Small card linking to the other half of the day (today's log at night, tomorrow's plan in the morning). */
-function PeekCard({ to, kinds, title, detail }: { to: string; kinds: GarmentKind[]; title: string; detail: string }) {
+function PeekCard({ to, itemIds, title, detail }: { to: string; itemIds: string[]; title: string; detail: string }) {
   return (
     <Card to={to} className="flex items-center gap-3 px-3.5 py-3">
-      <div className="flex rounded-[10px] bg-cloud p-1">{kinds.map((k) => <Garment key={k} kind={k} size={30} />)}</div>
-      <div className="flex-1">
-        <p className="text-[15px] font-medium">{title}</p>
-        <p className="text-[13px] text-text-muted">{detail}</p>
-      </div>
+      <Thumbs itemIds={itemIds} />
+      <div className="flex-1"><p className="text-[15px] font-medium">{title}</p><p className="text-[13px] text-text-muted">{detail}</p></div>
       <Icon name="chev" size={20} />
     </Card>
   )
 }
 
-/** Home card: icon square + title/detail + chevron, with optional extra content (chips) below. */
 function ActionCard({ to, icon, title, detail, children }: { to: string; icon: string; title: string; detail: string; children?: ReactNode }) {
   return (
     <Card to={to} className="flex flex-col gap-2">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-soft"><Icon name={icon} /></span>
-        <div className="min-w-0 flex-1">
-          <Heading size={16}>{title}</Heading>
-          <p className="text-[13px] text-text/65">{detail}</p>
-        </div>
+        <div className="min-w-0 flex-1"><Heading size={16}>{title}</Heading><p className="text-[13px] text-text/65">{detail}</p></div>
         <Icon name="chev" size={20} />
       </div>
       {children}
@@ -72,13 +87,18 @@ function ActionCard({ to, icon, title, detail, children }: { to: string; icon: s
 }
 
 function ForYou() {
+  const { state, today } = useStore()
+  const mon = monday(addDays(today, [0, 6].includes(new Date().getDay()) ? 2 : 0))
+  const planned = [0, 1, 2, 3, 4].filter((i) => state.planned.some((p) => p.date === addDays(mon, i))).length
+  const gaps = state.gaps.filter((g) => !g.resolved)
+  const pieces = state.items.filter((i) => i.status === 'active').length
   return (
     <>
       <Heading size={18} className="pt-1">For you</Heading>
-      <ActionCard to="/planner/week" icon="calendar" title="Plan your work week" detail="Sunday reminder · 5 minutes" />
+      <ActionCard to="/planner/week" icon="calendar" title="Plan your work week" detail={planned ? `${planned} of 5 workdays planned` : 'Sunday reminder · 5 minutes'} />
       <ActionCard to="/shop" icon="bag" title="Going shopping?" detail="What you own and what you need.">
         <div className="no-scrollbar flex gap-2 overflow-x-auto">
-          {['2 gaps · warm coat, white sneakers', '86 pieces'].map((s) => (
+          {[gaps.length ? `${gaps.length} ${gaps.length === 1 ? 'gap' : 'gaps'} · ${gaps.slice(0, 2).map((g) => g.label.toLowerCase()).join(', ')}` : 'No gaps', `${pieces} pieces`].map((s) => (
             <span key={s} className="shrink-0 whitespace-nowrap rounded-full bg-cloud px-3 py-1.5 text-[12px] font-medium">{s}</span>
           ))}
         </div>
@@ -88,60 +108,76 @@ function ForYou() {
 }
 
 function ActionButton({ children, primary = false, onClick }: { children: ReactNode; primary?: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className={`w-full rounded-md px-5 py-[15px] text-[16px] font-semibold ${primary ? 'bg-primary text-cloud' : 'border-[1.5px] border-primary'}`}>
-      {children}
-    </button>
-  )
+  return <button onClick={onClick} className={`w-full rounded-md px-5 py-[15px] text-[16px] font-semibold ${primary ? 'bg-primary text-cloud' : 'border-[1.5px] border-primary'}`}>{children}</button>
 }
 
-/** Home — morning (the default Home): today's outfit with "Wore it". */
-export function HomeMorning() {
+function NoCloset() {
+  return <Empty title="Add your first pieces" body="Once a few pieces are in your closet, Capsule suggests an outfit for every day." action={<Button to="/closet/add">Add pieces</Button>} />
+}
+
+/** Home — today (the default Home). */
+export function Home() {
+  const { state, today, tomorrow, weatherFor, forecast, setDraft, plan, toggleWore } = useStore()
   const nav = useNavigate()
-  const [worn, setWorn] = useState(false)
+  const d = useDayOutfit(today)
+  const t = useDayOutfit(tomorrow)
+  const w = weatherFor(today), wt = weatherFor(tomorrow)
+  const unit = state.profile.unit
+  const worn = !!d.outfit && state.wear.some((x) => x.outfitId === d.outfit!.id && x.wornOn === today)
+  const wore = () => {
+    if (!d.itemIds.length) return
+    const outfitId = d.outfit?.id ?? plan({ date: today, itemIds: d.itemIds, occasion: d.occasion, reason: d.reason, suggested: true }).outfitId
+    setTimeout(() => toggleWore(today, outfitId), 0)
+  }
+  const change = () => { setDraft({ date: today, itemIds: d.itemIds, editingId: d.first?.id, occasion: d.occasion }); nav(`/planner/add?date=${today}`) }
+  const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
   return (
     <Screen tabs>
       <div className="flex flex-col gap-2.5">
-        <HomeHeader greeting="Good morning" date="Thu, Nov 12 · Lawrence, KS" weather={<WeatherPill icon="sun" now="40°" hl="H:44° L:35°" />} />
-        <OutfitCard
-          when="Today · Thursday"
-          weather="40° now · rain after 3 pm"
-          kinds={TOMORROW.outfit}
-          reason={worn ? '✓ Logged — every piece is marked as worn today.' : 'Rain this afternoon, so wear the trench. Nothing here was worn this week.'}
-          actions={
-            <>
-              <ActionButton onClick={() => nav('/planner/add')}>Change it</ActionButton>
-              <ActionButton primary onClick={() => setWorn(!worn)}>{worn ? '✓ Wore it' : 'Wore it'}</ActionButton>
-            </>
-          }
-        />
-        <PeekCard to="/home/evening" kinds={['top', 'jeans', 'shoes']} title="Tomorrow · Friday" detail="51° · outfit ready tonight" />
+        <HomeHeader title={greeting()} date={today} />
+        {!hasCloset ? <NoCloset /> : (
+          <OutfitCard
+            when={`Today · ${dayName(today)}`}
+            weather={forecast ? `${deg(forecast.current, unit)} now · ${w && isRainy(w) ? 'rain later' : condition(forecast.currentCode)}` : 'Weather unavailable offline'}
+            occasion={d.occasion} date={today} itemIds={d.itemIds}
+            reason={worn ? '✓ Logged — every piece is marked as worn today.' : d.reason} missing={worn ? [] : d.missing}
+            actions={<><ActionButton onClick={change}>Change it</ActionButton><ActionButton primary onClick={wore}>{worn ? '✓ Wore it' : 'Wore it'}</ActionButton></>}
+          />
+        )}
+        {d.planned.length > 1 && <Link to={`/planner?date=${today}`} className="-mt-1 text-center text-[13px] font-medium text-text/65">+ {d.planned.length - 1} more outfit today →</Link>}
+        {hasCloset && <PeekCard to="/home/evening" itemIds={t.itemIds} title={`Tomorrow · ${dayName(tomorrow)}`} detail={t.first ? `Planned · ${t.occasion}` : wt ? `${deg(wt.high, unit)} · outfit ready tonight` : 'Outfit ready tonight'} />}
         <ForYou />
       </div>
     </Screen>
   )
 }
 
-/** Home — evening: tomorrow's suggestion. */
-export function Home() {
+/** Home — evening: plan tomorrow. */
+export function HomeEvening() {
+  const { state, today, tomorrow, weatherFor, setDraft, plan } = useStore()
   const nav = useNavigate()
+  const t = useDayOutfit(tomorrow)
+  const d = useDayOutfit(today)
+  const wt = weatherFor(tomorrow)
+  const unit = state.profile.unit
+  const worn = !!d.outfit && state.wear.some((x) => x.outfitId === d.outfit!.id && x.wornOn === today)
+  const change = () => { setDraft({ date: tomorrow, itemIds: t.itemIds, editingId: t.first?.id, occasion: t.occasion }); nav(`/planner/add?date=${tomorrow}`) }
+  const looksGood = () => { if (!t.first && t.itemIds.length) plan({ date: tomorrow, itemIds: t.itemIds, occasion: t.occasion, reason: t.reason, suggested: true }); nav(`/planner?date=${tomorrow}`) }
+  const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
   return (
     <Screen tabs>
       <div className="flex flex-col gap-2.5">
-        <HomeHeader greeting="Good evening" date="Wed, Nov 11 · Lawrence, KS" weather={<WeatherPill />} />
-        <OutfitCard
-          when="Tomorrow · Thursday"
-          weather="42° / 35° · rain after 3 pm"
-          kinds={TOMORROW.outfit}
-          reason={`Suggested: ${TOMORROW.reason} Nothing here was worn this week.`}
-          actions={
-            <>
-              <ActionButton onClick={() => nav('/planner/add')}>Change it</ActionButton>
-              <ActionButton primary onClick={() => nav('/planner')}>Looks good</ActionButton>
-            </>
-          }
-        />
-        <PeekCard to="/home" kinds={['top', 'jeans', 'shoes']} title="Today’s outfit" detail="✓ Wore it this morning" />
+        <HomeHeader title="Good evening" date={today} />
+        {!hasCloset ? <NoCloset /> : (
+          <OutfitCard
+            when={`Tomorrow · ${dayName(tomorrow)}`}
+            weather={wt ? `${deg(wt.high, unit)} / ${deg(wt.low, unit)}${isRainy(wt) ? ' · rain' : ` · ${condition(wt.code)}`}` : 'Weather unavailable offline'}
+            occasion={t.occasion} date={tomorrow} itemIds={t.itemIds}
+            reason={t.first ? `✓ Planned. ${t.reason}` : t.reason ? `Suggested: ${t.reason}` : ''} missing={t.missing}
+            actions={<><ActionButton onClick={change}>Change it</ActionButton><ActionButton primary onClick={looksGood}>{t.first ? 'View in Planner' : 'Looks good'}</ActionButton></>}
+          />
+        )}
+        {hasCloset && <PeekCard to="/home" itemIds={d.itemIds} title="Today’s outfit" detail={worn ? '✓ Wore it today' : 'Not logged yet'} />}
         <ForYou />
       </div>
     </Screen>

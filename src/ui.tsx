@@ -257,10 +257,10 @@ export function WeatherPill({ now = '46°', hl = 'H:48° L:35°', icon = 'moon' 
   )
 }
 
-export function Toggle({ initial = false }: { initial?: boolean }) {
+export function Toggle({ initial = false, onChange }: { initial?: boolean; onChange?: (v: boolean) => void }) {
   const [on, setOn] = useState(initial)
   return (
-    <button onClick={() => setOn(!on)} className={`flex h-[30px] w-[50px] items-center rounded-full px-[3px] transition-colors ${on ? 'justify-end bg-primary' : 'justify-start bg-border'}`} aria-pressed={on}>
+    <button type="button" onClick={() => { setOn(!on); onChange?.(!on) }} className={`flex h-[30px] w-[50px] items-center rounded-full px-[3px] transition-colors ${on ? 'justify-end bg-primary' : 'justify-start bg-border'}`} aria-pressed={on}>
       <span className="h-6 w-6 rounded-full bg-bg" />
     </button>
   )
