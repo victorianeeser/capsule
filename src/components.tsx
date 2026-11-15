@@ -48,17 +48,27 @@ export function autoLayout(items: Item[]): Placed[] {
   const pos = AUTO[Math.min(sorted.length, 5)] ?? AUTO[5]
   return sorted.slice(0, 6).map((it, i) => ({ itemId: it.id, x: pos[i % pos.length][0] + (i >= 5 ? 20 : 0), y: pos[i % pos.length][1], s: pos[i % pos.length][2] }))
 }
-export function Collage({ itemIds, layout, scale = 1, width = 300 }: { itemIds: string[]; layout?: Placed[]; scale?: number; width?: number }) {
+/**
+ * Outfit collage that fits any arrangement (auto or saved from the Canvas) into a box,
+ * keeping the arrangement's proportions and centering it.
+ */
+export function Collage({ itemIds, layout, scale = 1, width = 300, height = 290, top = 48 }: { itemIds: string[]; layout?: Placed[]; scale?: number; width?: number; height?: number; top?: number }) {
   const { state } = useStore()
   const items = itemIds.map((id) => state.items.find((i) => i.id === id)).filter(Boolean) as Item[]
-  const pl = layout?.length ? layout.filter((p) => items.some((i) => i.id === p.itemId)) : autoLayout(items)
-  const k = (width / 300) * scale
+  const saved = layout?.filter((p) => items.some((i) => i.id === p.itemId)) ?? []
+  const pl = [...saved, ...autoLayout(items.filter((i) => !saved.some((p) => p.itemId === i.id)))]
+  if (!pl.length) return null
+  const x0 = Math.min(...pl.map((p) => p.x)), y0 = Math.min(...pl.map((p) => p.y))
+  const x1 = Math.max(...pl.map((p) => p.x + p.s)), y1 = Math.max(...pl.map((p) => p.y + p.s))
+  const boxW = width - 24, boxH = height - top
+  const k = Math.min(boxW / (x1 - x0), boxH / (y1 - y0), 1.4) * scale
+  const offX = (width - (x1 - x0) * k) / 2, offY = top + (boxH - (y1 - y0) * k) / 2
   return (
     <>
       {pl.map((p) => {
         const it = items.find((i) => i.id === p.itemId)!
         return (
-          <span key={p.itemId} className="absolute" style={{ left: p.x * k, top: p.y * k }}>
+          <span key={p.itemId} className="absolute" style={{ left: offX + (p.x - x0) * k, top: offY + (p.y - y0) * k }}>
             <ItemImage item={it} size={p.s * k} />
           </span>
         )

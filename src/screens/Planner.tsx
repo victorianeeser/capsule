@@ -38,6 +38,50 @@ function useWeatherText(date: string) {
   return `${deg(w.high, state.profile.unit)} / ${deg(w.low, state.profile.unit)}${isRainy(w) ? ' · rain' : ` · ${condition(w.code)}`}`
 }
 
+/* ---------------- Swipe (touch + mouse) ---------------- */
+/**
+ * Horizontal swipe that follows the finger, then slides to the next/previous page.
+ * `dir` is +1 for a swipe to the left (next) and -1 for a swipe to the right (previous).
+ * Vertical movement is left to the browser so the page still scrolls.
+ */
+function useSwipe(onSwipe: (dir: 1 | -1) => void, threshold = 60) {
+  const [dx, setDx] = useState(0)
+  const [animate, setAnimate] = useState(false)
+  const start = useRef<{ x: number; y: number; axis?: 'h' | 'v' } | null>(null)
+  const swiped = useRef(false)
+  const zoom = () => Number(getComputedStyle(document.documentElement).getPropertyValue('--phone-zoom')) || 1
+  const handlers = {
+    onPointerDown: (e: React.PointerEvent) => { start.current = { x: e.clientX, y: e.clientY }; swiped.current = false; setAnimate(false) },
+    onPointerMove: (e: React.PointerEvent) => {
+      const s = start.current
+      if (!s) return
+      const mx = (e.clientX - s.x) / zoom(), my = (e.clientY - s.y) / zoom()
+      if (!s.axis && Math.hypot(mx, my) > 8) s.axis = Math.abs(mx) > Math.abs(my) ? 'h' : 'v'
+      if (s.axis === 'h') { swiped.current = true; setDx(mx) }
+    },
+    onPointerUp: () => {
+      const s = start.current
+      start.current = null
+      if (s?.axis !== 'h') { setDx(0); return }
+      setAnimate(true)
+      if (Math.abs(dx) < threshold) { setDx(0); return }
+      const dir = dx < 0 ? 1 : -1
+      setDx(-dir * 400) // slide out
+      setTimeout(() => {
+        onSwipe(dir)
+        setAnimate(false); setDx(dir * 400) // jump to the other side…
+        requestAnimationFrame(() => requestAnimationFrame(() => { setAnimate(true); setDx(0) })) // …and slide in
+      }, 160)
+    },
+    onPointerCancel: () => { start.current = null; setAnimate(true); setDx(0) },
+    onPointerLeave: (e: React.PointerEvent) => { if (start.current?.axis === 'h') handlers.onPointerUp(); else if (e.pointerType === 'mouse') start.current = null },
+    // A swipe shouldn't also count as a tap on a card or button.
+    onClickCapture: (e: React.MouseEvent) => { if (swiped.current) { e.stopPropagation(); e.preventDefault(); swiped.current = false } },
+  }
+  const style: React.CSSProperties = { transform: `translateX(${dx}px)`, transition: animate ? 'transform 160ms ease-out' : 'none' }
+  return { handlers, style }
+}
+
 /* ---------------- Day ---------------- */
 function PlannedCard({ p }: { p: PlannedOutfit }) {
   const { state, setDraft, unplan, setNote } = useStore()
@@ -48,7 +92,7 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
   if (!o) return null
   const edit = () => { setDraft({ date: p.date, itemIds: o.itemIds, layout: o.layout, editingId: p.id, occasion: p.occasion, note: p.note }); nav('/planner/canvas') }
   return (
-    <div onClick={edit} className="relative h-[360px] w-[300px] shrink-0 cursor-pointer overflow-hidden rounded-[22px] bg-surface">
+    <div onClick={edit} className="relative h-[400px] w-[350px] shrink-0 cursor-pointer overflow-hidden rounded-[22px] bg-surface">
       <div className="absolute top-4 left-4 z-10 flex gap-2">
         <Link to={`/planner/off-day?date=${p.date}`} onClick={(e) => e.stopPropagation()} className="rounded-full bg-primary px-3 py-[7px] text-[13px] font-medium text-cloud">{p.occasion}</Link>
         {p.suggested && <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggested</span>}
@@ -60,7 +104,7 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
           <button onClick={() => { unplan(p.id); setMenu(false) }} className="px-4 py-2.5 text-left">Remove from day</button>
         </div>
       )}
-      <Collage itemIds={o.itemIds} layout={o.layout} />
+      <Collage itemIds={o.itemIds} layout={o.layout} width={350} top={58} height={330} />
       <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
         {p.reason && <p className="text-[12px] text-text/70">{p.reason}</p>}
         <input value={note} onChange={(e) => setNoteText(e.target.value)} onBlur={() => setNote(p.id, note)} placeholder="Add a note…" className="bg-transparent text-[15px] outline-none placeholder:text-text/55" />
@@ -73,14 +117,14 @@ function SuggestionCard({ date }: { date: string }) {
   const { state, suggestFor, plan, addGap } = useStore()
   const s = suggestFor(date)
   const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
-  if (!hasCloset) return <div className="w-[300px]"><Empty title="Nothing to plan with yet" body="Add a few pieces to your closet and Capsule will suggest outfits." action={<Button to="/closet/add">Add pieces</Button>} /></div>
+  if (!hasCloset) return <div className="w-[350px]"><Empty title="Nothing to plan with yet" body="Add a few pieces to your closet and Capsule will suggest outfits." action={<Button to="/closet/add">Add pieces</Button>} /></div>
   return (
-    <div className="relative h-[360px] w-[300px] shrink-0 overflow-hidden rounded-[22px] border-[1.5px] border-dashed border-accent">
+    <div className="relative h-[400px] w-[350px] shrink-0 overflow-hidden rounded-[22px] border-[1.5px] border-dashed border-accent">
       <div className="absolute top-4 left-4 z-10 flex gap-2">
         <span className="rounded-full bg-primary/80 px-3 py-[7px] text-[13px] font-medium text-cloud">{s.occasion}</span>
         <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggestion</span>
       </div>
-      <div className="opacity-90"><Collage itemIds={s.itemIds} scale={0.8} /></div>
+      <div className="opacity-90"><Collage itemIds={s.itemIds} width={350} top={58} height={275} /></div>
       <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-2">
         {s.reason && <p className="text-[12px] text-text/70">{s.reason}</p>}
         {s.missing.length > 0 && <p className="text-[12px] text-text/70">Missing {s.missing.join(', ')}. <button className="font-semibold underline" onClick={() => s.missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' }))}>Add to Gaps</button></p>}
@@ -101,12 +145,13 @@ export function PlannerDay() {
   const planned = state.planned.filter((p) => p.date === date).sort((a, b) => a.position - b.position)
   const add = () => { setDraft({ date, itemIds: [], occasion: occasionLabel(state, date) }); nav(`/planner/add?date=${date}`) }
   const wText = useWeatherText(date)
+  const daySwipe = useSwipe((dir) => setDate(addDays(date, dir)))
+  const weekSwipe = useSwipe((dir) => setDate(addDays(date, dir * 7)), 40)
   return (
     <Screen tabs pad={false}>
       <PlannerNav />
       <DayMonth active="Day" date={date} />
-      <div className="flex items-center bg-surface/50 px-1 py-3">
-        <button onClick={() => setDate(addDays(date, -7))} className="px-1 text-text/40" aria-label="Previous week"><Icon name="back" size={18} /></button>
+      <div {...weekSwipe.handlers} style={weekSwipe.style} className="flex touch-pan-y items-center bg-surface/50 px-2.5 py-3 select-none">
         {week.map((d) => {
           const on = d === date, isToday = d === today
           return (
@@ -117,7 +162,6 @@ export function PlannerDay() {
             </button>
           )
         })}
-        <button onClick={() => setDate(addDays(date, 7))} className="px-1 text-text/40" aria-label="Next week"><Icon name="chev" size={18} /></button>
       </div>
       <div className="flex flex-col items-center gap-2 pt-3.5 pb-3">
         <p className="text-[16px] font-semibold">{fmtLong(date)}</p>
@@ -126,13 +170,14 @@ export function PlannerDay() {
           {planned.length > 1 && <span className="text-[13px] font-medium text-text/55">{planned.length} outfits ↓</span>}
         </div>
       </div>
-      <div className="relative flex flex-col items-center gap-3.5 pb-6">
-        <button onClick={() => setDate(addDays(date, -1))} className="absolute top-0 -left-[266px] h-[360px] w-[300px] rounded-[22px] bg-surface" aria-label="Previous day" />
-        <button onClick={() => setDate(addDays(date, 1))} className="absolute top-0 -right-[266px] flex h-[360px] w-[300px] items-center rounded-[22px] bg-surface pl-3 text-[28px] text-text/40" aria-label="Next day">›</button>
-        {planned.length ? planned.map((p) => <PlannedCard key={p.id} p={p} />) : <SuggestionCard date={date} />}
-        <button onClick={add} className="flex h-14 w-[300px] items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent text-[15px] font-medium text-text/70">
-          + {planned.length ? 'Add another outfit' : 'Build my own'}
-        </button>
+      {/* Swipe left/right anywhere here to change day; scroll up/down for more outfits that day. */}
+      <div {...daySwipe.handlers} className="relative flex flex-1 touch-pan-y flex-col items-center pb-6 select-none">
+        <div style={daySwipe.style} className="flex flex-col items-center gap-3.5">
+          {planned.length ? planned.map((p) => <PlannedCard key={p.id} p={p} />) : <SuggestionCard date={date} />}
+          <button onClick={add} className="flex h-14 w-[350px] items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent text-[15px] font-medium text-text/70">
+            + {planned.length ? 'Add another outfit' : 'Build my own'}
+          </button>
+        </div>
       </div>
     </Screen>
   )
@@ -364,7 +409,7 @@ export function OutfitDetails() {
   return (
     <Screen>
       <div className="flex items-center"><div className="w-20"><CircleButton /></div><h1 className="display flex-1 text-center text-[24px]">{draft.editingId ? 'Edit outfit' : 'New outfit'}</h1><div className="w-20" /></div>
-      <div className="flex justify-center pt-3.5"><div className="relative h-[280px] w-[210px] overflow-hidden rounded-[18px] bg-surface"><Collage itemIds={draft.itemIds} layout={draft.layout} width={210 * 0.8} scale={1} /></div></div>
+      <div className="flex justify-center pt-3.5"><div className="relative h-[280px] w-[210px] overflow-hidden rounded-[18px] bg-surface"><Collage itemIds={draft.itemIds} layout={draft.layout} width={210} height={268} top={12} /></div></div>
       <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note…" className="mt-3.5 bg-transparent text-[16px] outline-none placeholder:text-text/45" />
       <div className="mt-2">
         <label className="flex items-center gap-3.5 border-b border-border py-3.5"><Icon name="calendar" size={24} /><span className="flex-1 text-[16px] font-medium">Date</span>
