@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Button, Card, Eyebrow, Heading, Icon, Screen, Title, WeatherPill } from '../ui'
+import { Button, Card, Eyebrow, Heading, Icon, Screen, Title } from '../ui'
 import { useStore } from '../lib/store'
 import { dayName, fmtShort, greeting, monday, addDays } from '../lib/dates'
 import { condition, deg, isRainy } from '../lib/weather'
@@ -14,13 +14,35 @@ function HomeHeader({ title, date }: { title: string; date: string }) {
   const h = new Date().getHours()
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <Eyebrow className="min-w-0 flex-1 truncate">{fmtShort(date)} · {state.profile.city}</Eyebrow>
-        {forecast && t && <WeatherPill icon={h >= 18 || h < 6 ? 'moon' : 'sun'} now={deg(forecast.current, unit)} hl={`H:${deg(t.high, unit)} L:${deg(t.low, unit)}`} />}
-        <Link to="/settings" aria-label="Settings" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface"><Icon name="sliders" size={20} /></Link>
+      <Eyebrow className="truncate">{fmtShort(date)} · {state.profile.city}</Eyebrow>
+      <div className="flex items-center justify-between gap-3">
+        <Title className="min-w-0 truncate !text-[clamp(26px,8.2vw,32px)]">{title}</Title>
+        {forecast && t && (
+          <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface py-[7px] pr-4 pl-3" aria-label={`${deg(forecast.current, unit)}, high ${deg(t.high, unit)}, low ${deg(t.low, unit)}`}>
+            <WeatherIcon kind={h >= 18 || h < 6 ? 'moon' : 'sun'} />
+            <div className="flex flex-col items-start leading-none">
+              <span className="text-[17px] font-semibold tracking-[-0.02em]">{deg(forecast.current, unit)}</span>
+              <span className="pt-[3px] text-[10px] text-text-muted">H:{deg(t.high, unit)} L:{deg(t.low, unit)}</span>
+            </div>
+          </div>
+        )}
       </div>
-      <Title className="whitespace-nowrap">{title}</Title>
     </div>
+  )
+}
+
+function WeatherIcon({ kind }: { kind: 'sun' | 'moon' }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden>
+      {kind === 'moon' ? (
+        <path d="M19.5 14.6A7.6 7.6 0 1 1 9.4 4.5a6.1 6.1 0 0 0 10.1 10.1z" fill="var(--color-weather)" />
+      ) : (
+        <g stroke="var(--color-weather)" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="12" cy="12" r="4.2" fill="var(--color-weather)" stroke="none" />
+          <path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" />
+        </g>
+      )}
+    </svg>
   )
 }
 
@@ -94,7 +116,10 @@ function ForYou() {
   const pieces = state.items.filter((i) => i.status === 'active').length
   return (
     <>
-      <Heading size={18} className="pt-1">For you</Heading>
+      <div className="flex items-center justify-between pt-1">
+        <Heading size={18}>For you</Heading>
+        <Link to="/settings" aria-label="Settings" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface"><Icon name="sliders" size={20} /></Link>
+      </div>
       <ActionCard to="/planner/week" icon="calendar" title="Plan your work week" detail={planned ? `${planned} of 5 workdays planned` : 'Sunday reminder · 5 minutes'} />
       <ActionCard to="/shop" icon="bag" title="Going shopping?" detail="What you own and what you need.">
         <div className="no-scrollbar flex gap-2 overflow-x-auto">
