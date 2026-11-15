@@ -1,10 +1,25 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { Activity, Category, DayType, Draft, Gap, Item, Outfit, PlannedOutfit, Profile, State, Wish } from './types'
+import { migrateItem, type Activity, type Category, type DayType, type Draft, type Gap, type Item, type Outfit, type PlannedOutfit, type Profile, type State, type Wish } from './types'
 import { eraseAll, invalidateImage, loadImage, loadState, saveImage, saveState, deleteImage } from './db'
 import { cutOut, shrink } from './images'
 import { getForecast, type DayWeather, type Forecast } from './weather'
 import { addDays, dayName, today } from './dates'
 import { suggest, type Suggestion } from './suggest'
+
+/**
+ * Turn a photo filename into a starting name/brand, e.g.
+ * "Aritzia - Black wool coat.jpg" → brand "Aritzia", name "Black wool coat";
+ * "black_wool_coat.jpg" → name "Black wool coat". Camera names like IMG_1234 are ignored.
+ */
+export function fromFilename(file?: string): Partial<Item> {
+  if (!file) return {}
+  const base = file.replace(/\.[a-z0-9]+$/i, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!base || /^(img|dsc|photo|image|pxl|screenshot)[\s-]?\d/i.test(base) || /^[\d\s-]+$/.test(base)) return {}
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1)
+  const parts = base.split(/\s+[-–|]\s+/)
+  if (parts.length >= 2) return { brand: parts[0].trim(), name: cap(parts.slice(1).join(' ').trim()) }
+  return { name: cap(base.replace(/-+/g, ' ')) }
+}
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
 
@@ -25,7 +40,7 @@ function useStoreValue() {
   stateRef.current = state
 
   // Load once, then save (debounced) on every change.
-  useEffect(() => { loadState().then((s) => { if (s) setState({ ...EMPTY, ...s, profile: { ...DEFAULT_PROFILE, ...s.profile } }); setReady(true) }) }, [])
+  useEffect(() => { loadState().then((s) => { if (s) setState({ ...EMPTY, ...s, items: (s.items ?? []).map(migrateItem), profile: { ...DEFAULT_PROFILE, ...s.profile } }); setReady(true) }) }, [])
   useEffect(() => {
     if (!ready) return
     const t = setTimeout(() => saveState(state), 250)
@@ -56,17 +71,20 @@ function useStoreValue() {
     for (const f of files) {
       const imageId = uid()
       await saveImage(imageId, await shrink(f))
-      created.push({ id: uid(), name: 'New piece', category: 'top', color: '', warmth: 'mid', dressLevel: 'casual', context: 'both', delicate: false, status: 'active', tagged: false, imageId, processing: true, createdAt: new Date().toISOString(), ...overrides })
+      const sourceName = 'name' in f ? (f as File).name : undefined
+      created.push({ id: uid(), name: 'New piece', category: 'top', color: '', warmth: 'mid', dressLevels: ['casual'], context: 'both', delicate: false, status: 'active', tagged: false, imageId, processing: true, createdAt: new Date().toISOString(), sourceName, ...fromFilename(sourceName), ...overrides })
     }
     update((s) => ({ ...s, items: [...created, ...s.items] }))
     setQueue((q) => ({ ...q, total: q.total + created.length }))
     // Cut backgrounds one at a time so the phone stays responsive.
     ;(async () => {
       for (const it of created) {
+        if (!stateRef.current.items.some((i) => i.id === it.id)) { setQueue((q) => ({ ...q, done: q.done + 1 })); continue } // removed before it was processed
         try {
           const blob = await loadImage(it.imageId!)
           if (blob) {
             const cut = await cutOut(blob, (p) => setQueue((q) => ({ ...q, modelPct: p })))
+            if (!stateRef.current.items.some((i) => i.id === it.id)) { setQueue((q) => ({ ...q, done: q.done + 1 })); continue }
             await saveImage(it.imageId!, cut)
             invalidateImage(it.imageId!)
           }
@@ -154,12 +172,13 @@ function useStoreValue() {
 
 /** Silhouette closet for demos (Settings → Load demo closet). */
 function demoItems(): Item[] {
-  const mk = (name: string, category: Category, color: string, warmth: Item['warmth'], dressLevel: Item['dressLevel'], context: Item['context'], demoKind: NonNullable<Item['demoKind']>): Item =>
-    ({ id: uid(), name, category, color, warmth, dressLevel, context, delicate: false, status: 'active', tagged: true, demoKind, createdAt: new Date().toISOString() })
+  const mk = (name: string, category: Category, color: string, warmth: Item['warmth'], dressLevel: Item['dressLevels'][number], context: Item['context'], demoKind: NonNullable<Item['demoKind']>): Item =>
+    ({ id: uid(), name, category, color, warmth, dressLevels: [dressLevel], context, delicate: false, status: 'active', tagged: true, demoKind, createdAt: new Date().toISOString() })
   return [
-    mk('Cream knit sweater', 'top', 'Cream', 'warm', 'work', 'both', 'knit'),
+    mk('Cream knit sweater', 'sweater', 'Cream', 'warm', 'work', 'both', 'knit'),
     mk('Black tee', 'top', 'Black', 'light', 'casual', 'both', 'top'),
-    mk('Oat cardigan', 'top', 'Cream', 'mid', 'work', 'work', 'knit'),
+    mk('Oat cardigan', 'sweater', 'Cream', 'mid', 'work', 'work', 'knit'),
+    mk('Gray lounge set', 'lounge', 'Gray', 'mid', 'casual', 'weekend', 'jeans'),
     mk('Striped tee', 'top', 'Pattern', 'light', 'casual', 'weekend', 'top'),
     mk('Wide-leg trousers', 'bottom', 'Gray', 'mid', 'work', 'work', 'bottom'),
     mk('Dark jeans', 'bottom', 'Denim', 'mid', 'casual', 'both', 'jeans'),

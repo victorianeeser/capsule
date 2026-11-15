@@ -2,16 +2,16 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { BackBar, Body, Button, Card, Chip, Eyebrow, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
-import { CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, WARMTH_LABEL, type Category, type Item } from '../lib/types'
+import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, WARMTH_LABEL, type Category, type DressLevel, type Item } from '../lib/types'
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay, relative } from '../lib/dates'
 import { Empty, ItemImage, PhotoPicker, QueueBanner, Thumbs } from '../components'
 
-const CATS: (Category | 'all')[] = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory']
+const CATS: (Category | 'all')[] = ['all', ...CATEGORIES]
 export const matches = (i: Item, q: string) => {
   const t = q.trim().toLowerCase()
   if (!t) return true
-  const hay = `${i.name} ${i.color} ${CATEGORY_ONE[i.category]} ${CATEGORY_LABEL[i.category]} ${DRESS_LABEL[i.dressLevel]}`.toLowerCase()
+  const hay = `${i.name} ${i.brand ?? ''} ${i.color} ${CATEGORY_ONE[i.category]} ${CATEGORY_LABEL[i.category]} ${i.dressLevels.map((l) => DRESS_LABEL[l]).join(' ')}`.toLowerCase()
   return t.split(/\s+/).every((w) => hay.includes(w.replace(/s$/, '')))
 }
 
@@ -129,10 +129,20 @@ export function TagItem() {
           <span className="text-[11px] font-medium text-text/60">{it.processing ? 'Removing background…' : it.imageId ? 'Background removed ✓' : 'Demo piece'}</span>
         </Card>
         <input value={it.name === 'New piece' ? '' : it.name} onChange={(e) => set({ name: e.target.value })} placeholder="Name (optional) — e.g. Cream knit sweater" className="rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" />
+        <input value={it.brand ?? ''} onChange={(e) => set({ brand: e.target.value })} placeholder="Brand (optional) — e.g. Aritzia" className="rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" />
+        {it.sourceName && <p className="-mt-1.5 truncate text-[11px] text-text-muted">From photo: {it.sourceName}</p>}
         {group('Category', CATEGORY_ONE, it.category, 'category')}
         {group('Color', COLORS, it.color as string, 'color')}
         {group('Warmth', WARMTH_LABEL, it.warmth, 'warmth')}
-        {group('Dress level', DRESS_LABEL, it.dressLevel, 'dressLevel')}
+        <div className="flex flex-col gap-1.5">
+          <Eyebrow className="text-[11px]">Dress level · pick all that fit</Eyebrow>
+          <div className="flex flex-wrap gap-2">
+            {(Object.entries(DRESS_LABEL) as [DressLevel, string][]).map(([v, l]) => {
+              const on = it.dressLevels.includes(v)
+              return <Chip key={v} label={l} small selected={on} onClick={() => set({ dressLevels: on ? (it.dressLevels.length > 1 ? it.dressLevels.filter((x) => x !== v) : it.dressLevels) : [...it.dressLevels, v] })} />
+            })}
+          </div>
+        </div>
         {group('Worn for', CONTEXT_LABEL, it.context, 'context')}
         <div className="flex items-center justify-between py-1"><span className="text-[14px]">Delicate (skip on rainy days)</span><Toggle key={it.id} initial={it.delicate} onChange={(v) => set({ delicate: v })} /></div>
         <div className="flex-1" />
@@ -158,8 +168,11 @@ export function ItemDetail() {
       <div className="flex flex-col gap-3.5">
         <BackBar right="Edit" onRight={() => nav(`/closet/tag/${it.id}`)} />
         <span className="flex h-[250px] items-center justify-center rounded-lg bg-surface"><ItemImage item={it} size={220} /></span>
-        <Heading>{it.name}</Heading>
-        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.color, `${WARMTH_LABEL[it.warmth]} warmth`, DRESS_LABEL[it.dressLevel], CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : ''].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
+        <div className="flex flex-col gap-0.5">
+          <Heading>{it.name}</Heading>
+          {it.brand && <p className="text-[15px] text-text-muted">{it.brand}</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.color, `${WARMTH_LABEL[it.warmth]} warmth`, ...it.dressLevels.map((l) => DRESS_LABEL[l]), CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : ''].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
         <div className="grid grid-cols-3 gap-2.5">
           {[[`${st?.times ?? 0}×`, 'worn'], [st?.last ? fmtMonthDay(st.last) : '—', 'last worn'], [it.status === 'active' ? 'Keep' : it.status === 'donate' ? 'Donate' : 'Replace', 'status']].map(([n, l]) => (
             <Card key={l} className="p-3.5"><p className="text-[20px] font-semibold">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>
@@ -185,7 +198,7 @@ export function Audit() {
   const { state, saveItem, addGap, update } = useStore()
   const nav = useNavigate()
   const stats = useMemo(() => wearStats(state), [state])
-  const cats = (['top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory'] as Category[]).filter((c) => state.items.some((i) => i.category === c && i.status === 'active' && i.tagged))
+  const cats = CATEGORIES.filter((c) => state.items.some((i) => i.category === c && i.status === 'active' && i.tagged))
   const [cat, setCat] = useState<Category | undefined>(cats.find((c) => state.items.some((i) => i.category === c && i.status === 'active' && i.tagged && !state.auditDone.includes(i.id))))
   const inCat = state.items.filter((i) => i.category === cat && i.tagged && (i.status === 'active' || state.auditDone.includes(i.id)))
   const left = inCat.filter((i) => !state.auditDone.includes(i.id) && i.status === 'active')

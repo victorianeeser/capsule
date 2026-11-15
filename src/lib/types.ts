@@ -1,6 +1,8 @@
 import type { GarmentKind } from '../ui'
 
-export type Category = 'top' | 'bottom' | 'dress' | 'outerwear' | 'shoes' | 'accessory'
+export type Category = 'top' | 'sweater' | 'bottom' | 'dress' | 'lounge' | 'outerwear' | 'shoes' | 'accessory'
+/** Single source of truth for category order across the app. */
+export const CATEGORIES: Category[] = ['top', 'sweater', 'bottom', 'dress', 'lounge', 'outerwear', 'shoes', 'accessory']
 export type Warmth = 'light' | 'mid' | 'warm'
 export type DressLevel = 'casual' | 'work' | 'going-out' | 'athletic'
 export type Context = 'work' | 'weekend' | 'both'
@@ -11,10 +13,11 @@ export type Activity = 'Brunch' | 'Errands' | 'Going out' | 'Gym' | 'Lounging' |
 export interface Item {
   id: string
   name: string
+  brand?: string
   category: Category
   color: string
   warmth: Warmth
-  dressLevel: DressLevel
+  dressLevels: DressLevel[]  // one or more (e.g. Work + Going out)
   context: Context
   delicate: boolean
   status: ItemStatus
@@ -22,6 +25,7 @@ export interface Item {
   imageId?: string        // photo stored on this device (IndexedDB)
   processing?: boolean    // background removal still running
   demoKind?: GarmentKind  // demo items use a silhouette instead of a photo
+  sourceName?: string     // original photo filename (used to prefill name/brand)
   createdAt: string
 }
 
@@ -74,8 +78,8 @@ export interface State {
   auditDone: string[]     // item ids reviewed in the current audit pass
 }
 
-export const CATEGORY_LABEL: Record<Category, string> = { top: 'Tops', bottom: 'Bottoms', dress: 'Dresses', outerwear: 'Outerwear', shoes: 'Shoes', accessory: 'Accessories' }
-export const CATEGORY_ONE: Record<Category, string> = { top: 'Top', bottom: 'Bottom', dress: 'Dress', outerwear: 'Outerwear', shoes: 'Shoes', accessory: 'Accessory' }
+export const CATEGORY_LABEL: Record<Category, string> = { top: 'Tops', sweater: 'Sweaters', bottom: 'Bottoms', dress: 'Dresses', lounge: 'Lounge', outerwear: 'Outerwear', shoes: 'Shoes', accessory: 'Accessories' }
+export const CATEGORY_ONE: Record<Category, string> = { top: 'Top', sweater: 'Sweater', bottom: 'Bottom', dress: 'Dress', lounge: 'Lounge', outerwear: 'Outerwear', shoes: 'Shoes', accessory: 'Accessory' }
 export const DRESS_LABEL: Record<DressLevel, string> = { casual: 'Casual', work: 'Work', 'going-out': 'Going out', athletic: 'Athletic' }
 export const WARMTH_LABEL: Record<Warmth, string> = { light: 'Light', mid: 'Mid', warm: 'Warm' }
 export const CONTEXT_LABEL: Record<Context, string> = { work: 'Work', weekend: 'Weekend', both: 'Both' }
@@ -83,4 +87,11 @@ export const COLORS = ['Black', 'White', 'Cream', 'Gray', 'Brown', 'Tan', 'Navy'
 export const ACTIVITIES: Activity[] = ['Brunch', 'Errands', 'Going out', 'Gym', 'Lounging', 'Game day']
 
 /** Fallback silhouette for items without a photo. */
-export const KIND_FOR: Record<Category, GarmentKind> = { top: 'top', bottom: 'bottom', dress: 'dress', outerwear: 'outerwear', shoes: 'shoes', accessory: 'knit' }
+export const KIND_FOR: Record<Category, GarmentKind> = { top: 'top', sweater: 'knit', bottom: 'bottom', dress: 'dress', lounge: 'jeans', outerwear: 'outerwear', shoes: 'shoes', accessory: 'knit' }
+
+/** Older saved items had a single dressLevel — upgrade them on load. */
+export function migrateItem(i: Item & { dressLevel?: DressLevel }): Item {
+  if (Array.isArray(i.dressLevels) && i.dressLevels.length) return i
+  const { dressLevel, ...rest } = i
+  return { ...rest, dressLevels: [dressLevel ?? 'casual'] }
+}

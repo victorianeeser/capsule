@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { BackBar, Button, Card, Chip, Eyebrow, Header, Heading, Icon, ListRow, Screen, Title } from '../ui'
 import { useStore } from '../lib/store'
-import { CATEGORY_LABEL, CATEGORY_ONE, type Category, type Gap } from '../lib/types'
+import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, type Category, type Gap } from '../lib/types'
 import { matches } from './Closet'
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay } from '../lib/dates'
 import { Empty, ItemImage, PhotoPicker, useImage } from '../components'
 
-const ALL_CATS: Category[] = ['top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory']
+const ALL_CATS: Category[] = CATEGORIES
 
 export function Shop() {
   const { state } = useStore()
@@ -100,7 +100,7 @@ export function SearchResult() {
   )
 }
 
-const GOES_WITH: Record<Category, Category[]> = { top: ['bottom', 'shoes', 'outerwear'], bottom: ['top', 'shoes', 'outerwear'], dress: ['outerwear', 'shoes', 'accessory'], outerwear: ['top', 'bottom', 'dress'], shoes: ['bottom', 'dress', 'top'], accessory: ['top', 'dress', 'outerwear'] }
+const GOES_WITH: Record<Category, Category[]> = { top: ['bottom', 'shoes', 'outerwear'], sweater: ['bottom', 'shoes', 'outerwear'], bottom: ['top', 'sweater', 'shoes', 'outerwear'], dress: ['outerwear', 'shoes', 'accessory'], lounge: ['lounge', 'top', 'sweater'], outerwear: ['top', 'sweater', 'bottom', 'dress'], shoes: ['bottom', 'dress', 'top'], accessory: ['top', 'sweater', 'dress', 'outerwear'] }
 
 export function WouldThisGo() {
   const { state, addPhotos, addWish } = useStore()

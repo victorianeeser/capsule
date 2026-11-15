@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { BackBar, Button, Card, Chip, CircleButton, Eyebrow, Header, Icon, Pill, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
-import { ACTIVITIES, CATEGORY_LABEL, type Activity, type Category, type Item, type Placed, type PlannedOutfit } from '../lib/types'
+import { ACTIVITIES, CATEGORIES, CATEGORY_LABEL, type Activity, type Category, type Item, type Placed, type PlannedOutfit } from '../lib/types'
 import { addDays, dayShort, fmtLong, fmtShort, iso, monday, monthTitle, parse, weekStart } from '../lib/dates'
 import { dayInfo, occasionLabel } from '../lib/suggest'
 import { deg, isRainy, condition } from '../lib/weather'
@@ -250,7 +250,7 @@ function ItemGrid({ selected, onToggle, category, leading }: { selected: string[
     </div>
   )
 }
-const CAT_CHIPS: (Category | 'all')[] = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'accessory']
+const CAT_CHIPS: (Category | 'all')[] = ['all', ...CATEGORIES]
 function CatChips({ value, onChange }: { value: Category | 'all'; onChange: (c: Category | 'all') => void }) {
   return <div className="no-scrollbar flex gap-2 overflow-x-auto">{CAT_CHIPS.map((c) => <Chip key={c} label={c === 'all' ? 'All' : CATEGORY_LABEL[c]} selected={value === c} onClick={() => onChange(c)} />)}</div>
 }

@@ -63,20 +63,25 @@ export function suggest(s: State, date: string, w: DayWeather | undefined, exclu
   const pool = s.items.filter((i) =>
     i.status === 'active' && i.tagged &&
     (dayType === 'work' ? i.context !== 'weekend' : i.context !== 'work') &&
-    !(rain && i.delicate) && !exclude.has(i.id),
+    !(rain && i.delicate) && !exclude.has(i.id) &&
+    (i.category !== 'lounge' || (dayType === 'off' && activities.includes('Lounging'))),
   )
   const fresh = pool.filter((i) => !recent.has(i.id))
 
   const score = (i: Item) => {
     const st = stats.get(i.id)
-    let sc = (st?.times ?? 0) * 10 + levels.indexOf(i.dressLevel) * 5 // least-worn first, best dress level first
+    const best = Math.min(...i.dressLevels.map((l) => (levels.includes(l) ? levels.indexOf(l) : 9)))
+    let sc = (st?.times ?? 0) * 10 + best * 5 // least-worn first, best dress level first
+    if (i.category === 'sweater') sc += cold ? -6 : hot ? 12 : 0 // sweaters on cold days, not hot ones
     if (cold && i.warmth === 'light' && i.category !== 'shoes') sc += 6
     if (hot && i.warmth === 'warm') sc += 6
     if (st?.last) sc -= Math.min(30, (Date.parse(date) - Date.parse(st.last)) / 86400000) / 3
     return sc
   }
-  const pick = (cat: Category, extra?: (i: Item) => boolean): Item | undefined => {
-    const ok = (i: Item) => i.category === cat && levels.includes(i.dressLevel) && (!extra || extra(i))
+  const fits = (i: Item) => i.dressLevels.some((l) => levels.includes(l))
+  const pick = (cat: Category | Category[], extra?: (i: Item) => boolean): Item | undefined => {
+    const cats = Array.isArray(cat) ? cat : [cat]
+    const ok = (i: Item) => cats.includes(i.category) && fits(i) && (!extra || extra(i))
     return [...fresh.filter(ok)].sort((a, b) => score(a) - score(b))[0] ?? [...pool.filter(ok)].sort((a, b) => score(a) - score(b))[0]
   }
 
@@ -85,9 +90,17 @@ export function suggest(s: State, date: string, w: DayWeather | undefined, exclu
   const levelWord = dayType === 'work' ? 'work' : levels[0] === 'going-out' ? 'going-out' : levels[0] === 'athletic' ? 'gym' : 'casual'
 
   const preferDress = levels[0] === 'going-out'
+  const lounging = dayType === 'off' && activities.length > 0 && activities.every((a) => a === 'Lounging')
+  const lounge = lounging ? pick('lounge', () => true) : undefined
   const dress = pick('dress')
-  const top = pick('top'), bottom = pick('bottom')
-  if (preferDress && dress) chosen.push(dress)
+  const top = pick(['top', 'sweater']), bottom = pick('bottom')
+  if (lounge) {
+    // Lounging: lounge pieces first (a set, or a lounge piece plus a top/bottom).
+    chosen.push(lounge)
+    const second = [...fresh, ...pool].find((i) => i.id !== lounge.id && i.category === 'lounge')
+    if (second) chosen.push(second)
+    else if (top) chosen.push(top) // one lounge piece (e.g. joggers) + a top
+  } else if (preferDress && dress) chosen.push(dress)
   else if (top && bottom) chosen.push(top, bottom)
   else if (dress) chosen.push(dress)
   else { if (!top) missing.push(`${levelWord} tops`); if (!bottom) missing.push(`${levelWord} bottoms`); if (top) chosen.push(top); if (bottom) chosen.push(bottom) }

@@ -42,7 +42,7 @@ const AUTO: Record<number, [number, number, number][]> = {
   4: [[14, 46, 140], [150, 48, 124], [140, 150, 140], [36, 196, 96]],
   5: [[14, 46, 130], [150, 40, 116], [140, 150, 130], [30, 196, 92], [200, 10, 60]],
 }
-const ORDER = ['outerwear', 'top', 'dress', 'bottom', 'shoes', 'accessory']
+const ORDER = ['outerwear', 'sweater', 'top', 'dress', 'lounge', 'bottom', 'shoes', 'accessory']
 export function autoLayout(items: Item[]): Placed[] {
   const sorted = [...items].sort((a, b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category))
   const pos = AUTO[Math.min(sorted.length, 5)] ?? AUTO[5]
