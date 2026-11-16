@@ -13,17 +13,42 @@ export async function shrink(file: Blob, max = MAX): Promise<Blob> {
   return canvas.convertToBlob({ type: 'image/webp', quality: 0.86 })
 }
 
-/** Trim transparent edges so the garment fills its tile. */
-async function trim(blob: Blob): Promise<Blob> {
+/**
+ * Already cut out? True when a meaningful share of the picture is transparent
+ * (your own transparent PNGs, or WebP/AVIF with an alpha channel). JPEGs never are.
+ */
+export async function hasTransparency(blob: Blob): Promise<boolean> {
+  if (/jpe?g/i.test(blob.type)) return false
+  const N = 64
+  const bmp = await createImageBitmap(blob, { resizeWidth: N, resizeHeight: N, resizeQuality: 'low' })
+  const c = new OffscreenCanvas(N, N)
+  const ctx = c.getContext('2d')!
+  ctx.drawImage(bmp, 0, 0)
+  bmp.close()
+  const { data } = ctx.getImageData(0, 0, N, N)
+  let clear = 0
+  for (let i = 3; i < data.length; i += 4) if (data[i] < 240) clear++
+  return clear / (N * N) > 0.03
+}
+
+/** For photos you cut out yourself: just shrink and crop to the piece — edges are left untouched. */
+export async function prepareCutout(blob: Blob): Promise<Blob> {
+  return trim(await shrink(blob), false)
+}
+
+/** Trim transparent edges so the garment fills its tile. `clean` also removes faint specks (for auto cut-outs). */
+async function trim(blob: Blob, clean = true): Promise<Blob> {
   const bmp = await createImageBitmap(blob)
   const c = new OffscreenCanvas(bmp.width, bmp.height)
   const ctx = c.getContext('2d')!
   ctx.drawImage(bmp, 0, 0)
   const img = ctx.getImageData(0, 0, c.width, c.height)
   const { data, width, height } = img
-  // Clear faint leftovers (specks of floor or wall the model wasn't sure about).
-  for (let i = 3; i < data.length; i += 4) if (data[i] < 150) data[i] = 0
-  ctx.putImageData(img, 0, 0)
+  if (clean) {
+    // Clear faint leftovers (specks of floor or wall the model wasn't sure about).
+    for (let i = 3; i < data.length; i += 4) if (data[i] < 150) data[i] = 0
+    ctx.putImageData(img, 0, 0)
+  }
   // Crop to the garment: rows/columns with a meaningful number of solid pixels.
   const rows = new Array(height).fill(0), cols = new Array(width).fill(0)
   for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (data[(y * width + x) * 4 + 3] > 160) { rows[y]++; cols[x]++ }

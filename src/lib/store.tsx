@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { migrateItem, type Activity, type Category, type DayType, type Draft, type Gap, type Item, type Outfit, type PlannedOutfit, type Profile, type State, type Wish } from './types'
 import { eraseAll, invalidateImage, loadImage, loadState, saveImage, saveState, deleteImage } from './db'
-import { cutOut, shrink } from './images'
+import { cutOut, hasTransparency, prepareCutout, shrink } from './images'
 import { getForecast, type DayWeather, type Forecast } from './weather'
 import { addDays, dayName, today } from './dates'
 import { suggest, type Suggestion } from './suggest'
@@ -68,17 +68,22 @@ function useStoreValue() {
   /* ---------------- items & photos ---------------- */
   const addPhotos = useCallback(async (files: File[] | Blob[], overrides: Partial<Item> = {}): Promise<string[]> => {
     const created: Item[] = []
+    const toCut: Item[] = []
     for (const f of files) {
       const imageId = uid()
-      await saveImage(imageId, await shrink(f))
+      // Your own cut-outs (transparent PNG/WebP/AVIF) skip background removal — just crop and save.
+      const alreadyCut = await hasTransparency(f).catch(() => false)
+      await saveImage(imageId, alreadyCut ? await prepareCutout(f) : await shrink(f))
       const sourceName = 'name' in f ? (f as File).name : undefined
-      created.push({ id: uid(), name: 'New piece', category: 'top', color: '', warmth: 'mid', dressLevels: ['casual'], context: 'both', delicate: false, status: 'active', tagged: false, imageId, processing: true, createdAt: new Date().toISOString(), sourceName, ...fromFilename(sourceName), ...overrides })
+      const item: Item = { id: uid(), name: 'New piece', category: 'top', color: '', warmth: 'mid', dressLevels: ['casual'], context: 'both', delicate: false, status: 'active', tagged: false, imageId, processing: !alreadyCut, createdAt: new Date().toISOString(), sourceName, ...fromFilename(sourceName), ...overrides }
+      created.push(item)
+      if (!alreadyCut) toCut.push(item)
     }
     update((s) => ({ ...s, items: [...created, ...s.items] }))
-    setQueue((q) => ({ ...q, total: q.total + created.length }))
+    if (toCut.length) setQueue((q) => ({ ...q, total: q.total + toCut.length }))
     // Cut backgrounds one at a time so the phone stays responsive.
     ;(async () => {
-      for (const it of created) {
+      for (const it of toCut) {
         if (!stateRef.current.items.some((i) => i.id === it.id)) { setQueue((q) => ({ ...q, done: q.done + 1 })); continue } // removed before it was processed
         try {
           const blob = await loadImage(it.imageId!)
