@@ -133,7 +133,6 @@ export function TagItem() {
           <span className="text-[11px] font-medium text-text/60">{it.processing ? 'Removing background…' : it.imageId ? 'Background removed ✓' : 'Demo piece'}</span>
         </Card>
         <input value={it.name === 'New piece' ? '' : it.name} onChange={(e) => set({ name: e.target.value })} placeholder="Name (optional) — e.g. Cream knit sweater" className="rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" />
-        <input value={it.brand ?? ''} onChange={(e) => set({ brand: e.target.value })} placeholder="Brand (optional) — e.g. Aritzia" className="rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" />
         {it.sourceName && <p className="-mt-1.5 truncate text-[11px] text-text-muted">From photo: {it.sourceName}</p>}
         {group('Category', CATEGORY_ONE, it.category, 'category')}
         {SIZES_FOR(it.category).length > 0 && (
