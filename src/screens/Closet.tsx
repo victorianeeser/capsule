@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { BackBar, Body, Button, Card, Chip, Eyebrow, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
-import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, WARMTH_LABEL, type Category, type DressLevel, type Item } from '../lib/types'
+import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, SIZES_FOR, WARMTH_LABEL, type Category, type DressLevel, type Item } from '../lib/types'
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay, relative } from '../lib/dates'
 import { Empty, ItemImage, PhotoPicker, QueueBanner, Thumbs } from '../components'
@@ -101,7 +101,11 @@ export function TagItem() {
   const [draft, setDraft] = useState<Item | null>(null)
   const it = draft && draft.id === item?.id ? draft : item ? { ...item } : null
   if (!it) return <Screen><BackBar /><div className="pt-6"><Empty title="All tagged" body="Every piece in your closet has tags." action={<Button to="/closet">Go to closet</Button>} /></div></Screen>
-  const set = (p: Partial<Item>) => setDraft({ ...it, ...p })
+  const set = (p: Partial<Item>) => {
+    const next = { ...it, ...p }
+    if (p.category && next.size && !SIZES_FOR(p.category).includes(next.size)) next.size = undefined
+    setDraft(next)
+  }
   const pos = id ? null : `${queue.length} left to tag`
   const save = () => {
     const name = it.name === 'New piece' || !it.name.trim() ? `${it.color || ''} ${CATEGORY_ONE[it.category].toLowerCase()}`.trim().replace(/^./, (c) => c.toUpperCase()) : it.name
@@ -132,6 +136,14 @@ export function TagItem() {
         <input value={it.brand ?? ''} onChange={(e) => set({ brand: e.target.value })} placeholder="Brand (optional) — e.g. Aritzia" className="rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" />
         {it.sourceName && <p className="-mt-1.5 truncate text-[11px] text-text-muted">From photo: {it.sourceName}</p>}
         {group('Category', CATEGORY_ONE, it.category, 'category')}
+        {SIZES_FOR(it.category).length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <Eyebrow className="text-[11px]">Size</Eyebrow>
+            <div className="flex flex-wrap gap-2">
+              {SIZES_FOR(it.category).map((z) => <Chip key={z} label={z} small selected={it.size === z} onClick={() => set({ size: it.size === z ? undefined : z })} />)}
+            </div>
+          </div>
+        )}
         {group('Color', COLORS, it.color as string, 'color')}
         {group('Warmth', WARMTH_LABEL, it.warmth, 'warmth')}
         <div className="flex flex-col gap-1.5">
@@ -172,7 +184,7 @@ export function ItemDetail() {
           <Heading>{it.name}</Heading>
           {it.brand && <p className="text-[15px] text-text-muted">{it.brand}</p>}
         </div>
-        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.color, `${WARMTH_LABEL[it.warmth]} warmth`, ...it.dressLevels.map((l) => DRESS_LABEL[l]), CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : ''].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
+        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.size ? `Size ${it.size}` : '', it.color, `${WARMTH_LABEL[it.warmth]} warmth`, ...it.dressLevels.map((l) => DRESS_LABEL[l]), CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : ''].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
         <div className="grid grid-cols-3 gap-2.5">
           {[[`${st?.times ?? 0}×`, 'worn'], [st?.last ? fmtMonthDay(st.last) : '—', 'last worn'], [it.status === 'active' ? 'Keep' : it.status === 'donate' ? 'Donate' : 'Replace', 'status']].map(([n, l]) => (
             <Card key={l} className="p-3.5"><p className="text-[20px] font-semibold">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>

@@ -14,6 +14,7 @@ export interface Item {
   id: string
   name: string
   brand?: string
+  size?: string           // S/M/L for clothing, 8/9/10 for shoes
   category: Category
   color: string
   warmth: Warmth
@@ -84,6 +85,8 @@ export const DRESS_LABEL: Record<DressLevel, string> = { casual: 'Casual', work:
 export const WARMTH_LABEL: Record<Warmth, string> = { light: 'Light', mid: 'Mid', warm: 'Warm' }
 export const CONTEXT_LABEL: Record<Context, string> = { work: 'Work', weekend: 'Weekend', both: 'Both' }
 export const COLORS = ['Black', 'White', 'Cream', 'Gray', 'Brown', 'Tan', 'Navy', 'Blue', 'Denim', 'Green', 'Red', 'Pink', 'Purple', 'Yellow', 'Pattern']
+/** Size choices by category (accessories have none). */
+export const SIZES_FOR = (c: Category): string[] => (c === 'shoes' ? ['8', '9', '10'] : c === 'accessory' ? [] : ['S', 'M', 'L'])
 export const ACTIVITIES: Activity[] = ['Brunch', 'Errands', 'Going out', 'Gym', 'Lounging', 'Game day']
 
 /** Fallback silhouette for items without a photo. */
