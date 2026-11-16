@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { BackBar, Button, Card, Chip, Eyebrow, Header, Heading, Icon, ListRow, Screen, Title } from '../ui'
 import { useStore } from '../lib/store'
-import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, type Category, type Gap } from '../lib/types'
+import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, type Category, type Gap, countPieces } from '../lib/types'
 import { matches } from './Closet'
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay } from '../lib/dates'
@@ -36,7 +36,7 @@ export function Shop() {
         <div className="flex items-center justify-between"><Heading size={18}>What you own</Heading><Link to="/closet" className="text-[13px] font-medium text-text/70">Closet</Link></div>
         <div className="grid grid-cols-3 gap-2">
           {ALL_CATS.map((c) => (
-            <Card key={c} className="p-3"><p className="text-[20px] font-semibold">{active.filter((i) => i.category === c).length}</p><p className="text-[12px] text-text-muted">{CATEGORY_LABEL[c]}</p></Card>
+            <Card key={c} className="p-3"><p className="text-[20px] font-semibold">{countPieces(active.filter((i) => i.category === c))}</p><p className="text-[12px] text-text-muted">{CATEGORY_LABEL[c]}</p></Card>
           ))}
         </div>
         <ListRow title="Wishlist" detail={`${state.wishlist.length} ${state.wishlist.length === 1 ? 'thing' : 'things'} you saw but didn’t buy`} to="/shop/wishlist" />
@@ -77,7 +77,7 @@ export function SearchResult() {
         </label>
         {q.trim() && (
           <>
-            <div><Eyebrow>{found.length ? 'You already own' : 'You don’t own'}</Eyebrow><Title>{found.length ? `${found.length} × ${q}` : q}</Title></div>
+            <div><Eyebrow>{found.length ? 'You already own' : 'You don’t own'}</Eyebrow><Title>{found.length ? `${countPieces(found)} × ${q}` : q}</Title></div>
             {found.length > 0 && (
               <div className="grid grid-cols-3 gap-3">
                 {found.slice(0, 9).map((it) => (
@@ -89,7 +89,7 @@ export function SearchResult() {
                 ))}
               </div>
             )}
-            {found.length > 0 && last && <Card><p className="text-[14px]">{found.length >= 3 ? 'You have plenty — probably skip it.' : 'You have some already — buy only if it’s different.'}</p><p className="text-[12px] text-text-muted">Most recent added {fmtMonthDay(last.slice(0, 10))}</p></Card>}
+            {found.length > 0 && last && <Card><p className="text-[14px]">{countPieces(found) >= 3 ? 'You have plenty — probably skip it.' : 'You have some already — buy only if it’s different.'}</p><p className="text-[12px] text-text-muted">Most recent added {fmtMonthDay(last.slice(0, 10))}</p></Card>}
             <div className="flex-1" />
             <Button variant="secondary" onClick={() => { addGap({ label: q, source: 'manual' }); setAdded(true) }}>{added ? '✓ Added to Gaps' : `Add “${q}” to Gaps${found.length ? ' anyway' : ''}`}</Button>
             <Button variant="text" to={`/shop/wishlist/new?name=${encodeURIComponent(q)}`}>Save to wishlist</Button>

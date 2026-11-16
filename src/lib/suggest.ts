@@ -38,6 +38,16 @@ function dressLevels(dayType: DayType, activities: Activity[]): DressLevel[] {
   return ['casual']
 }
 
+/**
+ * Should Capsule suggest an outfit on its own? Only on work days, or off days where you picked activities —
+ * never on a day marked "No outfit needed". You can still ask for one from the Planner.
+ */
+export function autoSuggests(s: State, date: string) {
+  if (s.skipped.includes(date)) return false
+  const { dayType, activities } = dayInfo(s, date)
+  return dayType === 'work' || activities.length > 0
+}
+
 export interface Suggestion { itemIds: string[]; reason: string; missing: string[]; occasion: string }
 
 export function suggest(s: State, date: string, w: DayWeather | undefined, exclude = new Set<string>()): Suggestion {
@@ -51,14 +61,18 @@ export function suggest(s: State, date: string, w: DayWeather | undefined, exclu
   const hot = high !== undefined && high >= 75
 
   // Pieces worn (or planned) recently can't repeat; on workdays, nothing repeats within the Mon–Fri week.
-  const recent = new Set<string>()
+  // A piece you own several of (quantity) can be used that many times before it counts as a repeat.
+  const uses = new Map<string, Set<string>>() // itemId → dates used
+  const use = (id: string, d: string) => { const u = uses.get(id) ?? new Set<string>(); u.add(d); uses.set(id, u) }
   const windowStart = addDays(date, -s.profile.repeatDays)
-  for (const e of s.wear) if (e.wornOn >= windowStart && e.wornOn < date) recent.add(e.itemId)
+  for (const e of s.wear) if (e.wornOn >= windowStart && e.wornOn < date) use(e.itemId, e.wornOn)
   if (dayType === 'work') {
     const mon = monday(date)
-    for (const p of s.planned) if (p.date >= mon && p.date < date) s.outfits.find((o) => o.id === p.outfitId)?.itemIds.forEach((i) => recent.add(i))
-    for (const e of s.wear) if (e.wornOn >= mon && e.wornOn < date) recent.add(e.itemId)
+    for (const p of s.planned) if (p.date >= mon && p.date < date) s.outfits.find((o) => o.id === p.outfitId)?.itemIds.forEach((i) => use(i, p.date))
+    for (const e of s.wear) if (e.wornOn >= mon && e.wornOn < date) use(e.itemId, e.wornOn)
   }
+  const qty = new Map(s.items.map((i) => [i.id, Math.max(1, i.quantity ?? 1)]))
+  const recent = new Set([...uses].filter(([id, d]) => d.size >= (qty.get(id) ?? 1)).map(([id]) => id))
 
   const pool = s.items.filter((i) =>
     i.status === 'active' && i.tagged &&

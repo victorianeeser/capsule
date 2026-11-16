@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { BackBar, Body, Button, Card, Chip, Eyebrow, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
-import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, SIZES_FOR, WARMTH_LABEL, type Category, type DressLevel, type Item } from '../lib/types'
+import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, NUMBER_SIZES_FOR, SIZES_FOR, WARMTH_LABEL, colorText, countPieces, type Category, type DressLevel, type Item, type Warmth } from '../lib/types'
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay, relative } from '../lib/dates'
 import { Empty, ItemImage, PhotoPicker, QueueBanner, Thumbs } from '../components'
@@ -11,23 +11,55 @@ const CATS: (Category | 'all')[] = ['all', ...CATEGORIES]
 export const matches = (i: Item, q: string) => {
   const t = q.trim().toLowerCase()
   if (!t) return true
-  const hay = `${i.name} ${i.brand ?? ''} ${i.color} ${CATEGORY_ONE[i.category]} ${CATEGORY_LABEL[i.category]} ${i.dressLevels.map((l) => DRESS_LABEL[l]).join(' ')}`.toLowerCase()
+  const hay = `${i.name} ${i.brand ?? ''} ${i.colors.join(' ')} ${CATEGORY_ONE[i.category]} ${CATEGORY_LABEL[i.category]} ${i.dressLevels.map((l) => DRESS_LABEL[l]).join(' ')}`.toLowerCase()
   return t.split(/\s+/).every((w) => hay.includes(w.replace(/s$/, '')))
 }
+
+type Sort = 'newest' | 'oldest' | 'most' | 'least' | 'color' | 'name'
+const SORTS: [Sort, string][] = [['newest', 'Newest'], ['oldest', 'Oldest'], ['most', 'Most worn'], ['least', 'Least worn'], ['color', 'Color'], ['name', 'A–Z']]
+interface Filters { colors: string[]; levels: DressLevel[]; warmth: Warmth[]; sizes: string[] }
+const NO_FILTERS: Filters = { colors: [], levels: [], warmth: [], sizes: [] }
 
 export function Closet() {
   const { state } = useStore()
   const [cat, setCat] = useState<Category | 'all'>('all')
   const [q, setQ] = useState('')
+  const [open, setOpen] = useState(false)
+  const [sort, setSort] = useState<Sort>('newest')
+  const [f, setF] = useState<Filters>(NO_FILTERS)
+  const stats = useMemo(() => wearStats(state), [state])
   const active = state.items.filter((i) => i.status === 'active')
-  const items = active.filter((i) => (cat === 'all' || i.category === cat) && matches(i, q))
+  const any = <T,>(sel: T[], vals: T[]) => !sel.length || vals.some((v) => sel.includes(v))
+  const items = active
+    .filter((i) => (cat === 'all' || i.category === cat) && matches(i, q) && any(f.colors, i.colors) && any(f.levels, i.dressLevels) && any(f.warmth, [i.warmth]) && any(f.sizes, i.size ? [i.size] : []))
+    .sort((a, b) => {
+      const worn = (x: Item) => stats.get(x.id)?.times ?? 0
+      switch (sort) {
+        case 'oldest': return a.createdAt.localeCompare(b.createdAt)
+        case 'most': return worn(b) - worn(a)
+        case 'least': return worn(a) - worn(b)
+        case 'color': return (COLORS.indexOf(a.colors[0] ?? '') + 99) % 99 - (COLORS.indexOf(b.colors[0] ?? '') + 99) % 99 || a.name.localeCompare(b.name)
+        case 'name': return a.name.localeCompare(b.name)
+        default: return b.createdAt.localeCompare(a.createdAt)
+      }
+    })
   const untagged = state.items.filter((i) => !i.tagged).length
   const toAudit = active.filter((i) => !state.auditDone.includes(i.id)).length
+  const nFilters = f.colors.length + f.levels.length + f.warmth.length + f.sizes.length
+  const usedColors = COLORS.filter((c) => active.some((i) => i.colors.includes(c)))
+  const usedSizes = [...new Set(active.filter((i) => cat === 'all' || i.category === cat).map((i) => i.size).filter(Boolean) as string[])]
+  const flip = <K extends keyof Filters>(k: K, v: Filters[K][number]) => setF((x) => ({ ...x, [k]: (x[k] as string[]).includes(v) ? (x[k] as string[]).filter((y) => y !== v) : [...x[k], v] }))
+  const row = <K extends keyof Filters>(label: string, k: K, opts: [Filters[K][number], string][]) => opts.length > 0 && (
+    <div className="flex flex-col gap-1.5">
+      <Eyebrow className="text-[11px]">{label}</Eyebrow>
+      <div className="flex flex-wrap gap-2">{opts.map(([v, l]) => <Chip key={v} label={l} small selected={(f[k] as string[]).includes(v)} onClick={() => flip(k, v)} />)}</div>
+    </div>
+  )
   return (
     <Screen tabs>
       <div className="flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
-          <div><Title>Closet</Title><p className="text-[13px] text-text-muted">{active.length} {active.length === 1 ? 'piece' : 'pieces'}</p></div>
+          <div><Title>Closet</Title><p className="text-[13px] text-text-muted">{countPieces(active)} {countPieces(active) === 1 ? 'piece' : 'pieces'}</p></div>
           <Link to="/closet/add" aria-label="Add items" className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-cloud"><Icon name="plus" /></Link>
         </div>
         <QueueBanner />
@@ -36,10 +68,30 @@ export function Closet() {
         )}
         {active.length > 0 && (
           <>
-            <label className="flex items-center gap-2.5 rounded-md border border-border px-3.5 py-3">
-              <Icon name="search" size={20} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — “black jeans”" className="w-full bg-transparent text-[15px] outline-none placeholder:text-text/50" />
-            </label>
+            <div className="flex gap-2">
+              <label className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md border border-border px-3.5 py-3">
+                <Icon name="search" size={20} />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search — “black jeans”" className="w-full bg-transparent text-[15px] outline-none placeholder:text-text/50" />
+              </label>
+              <button onClick={() => setOpen((o) => !o)} aria-label="Filter and sort" aria-expanded={open}
+                className={`relative flex w-[50px] shrink-0 items-center justify-center rounded-md border ${open || nFilters || sort !== 'newest' ? 'border-primary bg-primary text-cloud' : 'border-border'}`}>
+                <Icon name="filter" size={20} />
+                {nFilters > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-weather px-1 text-[11px] font-semibold text-text">{nFilters}</span>}
+              </button>
+            </div>
+            {open && (
+              <div className="flex flex-col gap-3 rounded-md bg-surface p-3.5">
+                <div className="flex flex-col gap-1.5">
+                  <Eyebrow className="text-[11px]">Sort by</Eyebrow>
+                  <div className="flex flex-wrap gap-2">{SORTS.map(([v, l]) => <Chip key={v} label={l} small selected={sort === v} onClick={() => setSort(v)} />)}</div>
+                </div>
+                {row('Color', 'colors', usedColors.map((c) => [c, c]))}
+                {row('Dress level', 'levels', Object.entries(DRESS_LABEL) as [DressLevel, string][])}
+                {row('Warmth', 'warmth', Object.entries(WARMTH_LABEL) as [Warmth, string][])}
+                {row('Size', 'sizes', usedSizes.map((z) => [z, z]))}
+                {(nFilters > 0 || sort !== 'newest') && <button className="self-start text-[13px] font-semibold underline" onClick={() => { setF(NO_FILTERS); setSort('newest') }}>Clear all</button>}
+              </div>
+            )}
             <div className="no-scrollbar flex gap-2 overflow-x-auto">
               {CATS.map((c) => <Chip key={c} label={c === 'all' ? 'All' : CATEGORY_LABEL[c]} selected={cat === c} onClick={() => setCat(c)} />)}
             </div>
@@ -51,12 +103,15 @@ export function Closet() {
         {active.length === 0 ? (
           <Empty title="Your closet is empty" body="Start with your 15 favorite pieces — upload a few photos at once." action={<Button to="/closet/add">Add pieces</Button>} />
         ) : items.length === 0 ? (
-          <p className="py-6 text-center text-[14px] text-text-muted">Nothing matches “{q}”.</p>
+          <p className="py-6 text-center text-[14px] text-text-muted">{q ? `Nothing matches “${q}”.` : 'Nothing matches these filters.'}</p>
         ) : (
           <div className="grid grid-cols-3 gap-x-3 gap-y-3.5">
             {items.map((it) => (
               <Link key={it.id} to={`/closet/item/${it.id}`} className="flex flex-col gap-1.5">
-                <span className="flex aspect-square items-center justify-center rounded-md bg-surface"><ItemImage item={it} size={86} /></span>
+                <span className="relative flex aspect-square items-center justify-center rounded-md bg-surface">
+                  <ItemImage item={it} size={86} />
+                  {(it.quantity ?? 1) > 1 && <span className="absolute top-1.5 right-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-cloud">×{it.quantity}</span>}
+                </span>
                 <span className="text-[12px] font-medium leading-tight">{it.tagged ? it.name : 'Needs tags'}</span>
               </Link>
             ))}
@@ -103,12 +158,12 @@ export function TagItem() {
   if (!it) return <Screen><BackBar /><div className="pt-6"><Empty title="All tagged" body="Every piece in your closet has tags." action={<Button to="/closet">Go to closet</Button>} /></div></Screen>
   const set = (p: Partial<Item>) => {
     const next = { ...it, ...p }
-    if (p.category && next.size && !SIZES_FOR(p.category).includes(next.size)) next.size = undefined
+    if (p.category && next.size && ![...SIZES_FOR(p.category), ...NUMBER_SIZES_FOR(p.category)].includes(next.size)) next.size = undefined
     setDraft(next)
   }
   const pos = id ? null : `${queue.length} left to tag`
   const save = () => {
-    const name = it.name === 'New piece' || !it.name.trim() ? `${it.color || ''} ${CATEGORY_ONE[it.category].toLowerCase()}`.trim().replace(/^./, (c) => c.toUpperCase()) : it.name
+    const name = it.name === 'New piece' || !it.name.trim() ? `${colorText(it)} ${CATEGORY_ONE[it.category].toLowerCase()}`.trim().replace(/^./, (c) => c.toUpperCase()) : it.name
     saveItem({ ...it, name, tagged: true })
     setDraft(null)
     if (id) nav(-1)
@@ -141,9 +196,30 @@ export function TagItem() {
             <div className="flex flex-wrap gap-2">
               {SIZES_FOR(it.category).map((z) => <Chip key={z} label={z} small selected={it.size === z} onClick={() => set({ size: it.size === z ? undefined : z })} />)}
             </div>
+            {NUMBER_SIZES_FOR(it.category).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {NUMBER_SIZES_FOR(it.category).map((z) => <Chip key={z} label={z} small selected={it.size === z} onClick={() => set({ size: it.size === z ? undefined : z })} />)}
+              </div>
+            )}
           </div>
         )}
-        {group('Color', COLORS, it.color as string, 'color')}
+        <div className="flex flex-col gap-1.5">
+          <Eyebrow className="text-[11px]">Color · pick all that fit</Eyebrow>
+          <div className="flex flex-wrap gap-2">
+            {COLORS.map((c) => {
+              const on = it.colors.includes(c)
+              return <Chip key={c} label={c} small selected={on} onClick={() => set({ colors: on ? it.colors.filter((x) => x !== c) : [...it.colors, c] })} />
+            })}
+          </div>
+        </div>
+        <div className="flex items-center justify-between py-1">
+          <div><p className="text-[14px]">How many do you own?</p><p className="text-[12px] text-text-muted">Own several of the same? Log it once.</p></div>
+          <div className="flex items-center gap-3">
+            <button aria-label="One fewer" onClick={() => set({ quantity: Math.max(1, (it.quantity ?? 1) - 1) })} className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-[18px]">−</button>
+            <span className="w-6 text-center text-[16px] font-semibold">{it.quantity ?? 1}</span>
+            <button aria-label="One more" onClick={() => set({ quantity: Math.min(99, (it.quantity ?? 1) + 1) })} className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-[18px]">+</button>
+          </div>
+        </div>
         {group('Warmth', WARMTH_LABEL, it.warmth, 'warmth')}
         <div className="flex flex-col gap-1.5">
           <Eyebrow className="text-[11px]">Dress level · pick all that fit</Eyebrow>
@@ -183,7 +259,7 @@ export function ItemDetail() {
           <Heading>{it.name}</Heading>
           {it.brand && <p className="text-[15px] text-text-muted">{it.brand}</p>}
         </div>
-        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.size ? `Size ${it.size}` : '', it.color, `${WARMTH_LABEL[it.warmth]} warmth`, ...it.dressLevels.map((l) => DRESS_LABEL[l]), CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : ''].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
+        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.size ? `Size ${it.size}` : '', (it.quantity ?? 1) > 1 ? `You own ${it.quantity}` : '', ...it.colors, `${WARMTH_LABEL[it.warmth]} warmth`, ...it.dressLevels.map((l) => DRESS_LABEL[l]), CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : ''].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
         <div className="grid grid-cols-3 gap-2.5">
           {[[`${st?.times ?? 0}×`, 'worn'], [st?.last ? fmtMonthDay(st.last) : '—', 'last worn'], [it.status === 'active' ? 'Keep' : it.status === 'donate' ? 'Donate' : 'Replace', 'status']].map(([n, l]) => (
             <Card key={l} className="p-3.5"><p className="text-[20px] font-semibold">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>

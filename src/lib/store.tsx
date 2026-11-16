@@ -27,7 +27,7 @@ const DEFAULT_PROFILE: Profile = {
   onboarded: false, city: 'Lawrence, KS', lat: 38.9717, lon: -95.2353, unit: 'F',
   routine: ['off', 'work', 'work', 'work', 'work', 'work', 'off'], workHours: '9–5', repeatDays: 4, firstPiecesGoal: 15,
 }
-const EMPTY: State = { version: 1, profile: DEFAULT_PROFILE, items: [], outfits: [], planned: [], days: [], wear: [], gaps: [], wishlist: [], auditDone: [] }
+const EMPTY: State = { version: 1, profile: DEFAULT_PROFILE, items: [], outfits: [], planned: [], days: [], wear: [], gaps: [], wishlist: [], auditDone: [], skipped: [] }
 
 export interface PhotoQueue { total: number; done: number; modelPct: number; failed: number }
 
@@ -46,6 +46,15 @@ function useStoreValue() {
     const t = setTimeout(() => saveState(state), 250)
     return () => clearTimeout(t)
   }, [state, ready])
+  // Save right away if the app is closed or hidden before the debounce fires.
+  useEffect(() => {
+    if (!ready) return
+    const flush = () => { if (document.visibilityState === 'hidden') saveState(stateRef.current) }
+    const now = () => saveState(stateRef.current)
+    document.addEventListener('visibilitychange', flush)
+    window.addEventListener('pagehide', now)
+    return () => { document.removeEventListener('visibilitychange', flush); window.removeEventListener('pagehide', now) }
+  }, [ready])
 
   // Weather for the saved city.
   useEffect(() => { if (ready) getForecast(state.profile.lat, state.profile.lon).then(setForecast) }, [ready, state.profile.lat, state.profile.lon])
@@ -75,7 +84,7 @@ function useStoreValue() {
       const alreadyCut = await hasTransparency(f).catch(() => false)
       await saveImage(imageId, alreadyCut ? await prepareCutout(f) : await shrink(f))
       const sourceName = 'name' in f ? (f as File).name : undefined
-      const item: Item = { id: uid(), name: 'New piece', category: 'top', color: '', warmth: 'mid', dressLevels: ['casual'], context: 'both', delicate: false, status: 'active', tagged: false, imageId, processing: !alreadyCut, createdAt: new Date().toISOString(), sourceName, ...fromFilename(sourceName), ...overrides }
+      const item: Item = { id: uid(), name: 'New piece', category: 'top', colors: [], warmth: 'mid', dressLevels: ['casual'], context: 'both', delicate: false, status: 'active', tagged: false, imageId, processing: !alreadyCut, createdAt: new Date().toISOString(), sourceName, ...fromFilename(sourceName), ...overrides }
       created.push(item)
       if (!alreadyCut) toCut.push(item)
     }
@@ -149,6 +158,21 @@ function useStoreValue() {
       : { ...s, wear: [...s.wear, ...o.itemIds.map((itemId) => ({ id: uid(), itemId, outfitId, wornOn: date }))] }
   }), [update])
 
+  /** "No outfit needed" for a date (toggle). */
+  const toggleSkip = useCallback((date: string) => update((s) => ({ ...s, skipped: s.skipped.includes(date) ? s.skipped.filter((d) => d !== date) : [...s.skipped, date] })), [update])
+  /** Take an outfit out of Favorites: keep it if a day still uses it, otherwise delete it. */
+  const removeFavorite = useCallback((outfitId: string) => update((s) => (
+    s.planned.some((p) => p.outfitId === outfitId)
+      ? { ...s, outfits: s.outfits.map((o) => (o.id === outfitId ? { ...o, isFavorite: false } : o)) }
+      : { ...s, outfits: s.outfits.filter((o) => o.id !== outfitId) }
+  )), [update])
+  /** Save an outfit straight to Favorites (from the Canvas) without planning it. */
+  const saveFavorite = useCallback((itemIds: string[], layout?: Outfit['layout']) => {
+    const id = uid()
+    update((s) => ({ ...s, outfits: [...s.outfits, { id, itemIds, layout, isFavorite: true, createdAt: new Date().toISOString() }] }))
+    return id
+  }, [update])
+
   const setDraft = useCallback((d?: Draft) => update((s) => ({ ...s, draft: d })), [update])
 
   /* ---------------- gaps & wishlist ---------------- */
@@ -169,7 +193,7 @@ function useStoreValue() {
 
   return {
     state, ready, forecast, queue, weatherFor, update,
-    addPhotos, saveItem, deleteItem, suggestFor, plan, unplan, setNote, setDay, toggleWore, setDraft,
+    addPhotos, saveItem, deleteItem, suggestFor, plan, unplan, setNote, setDay, toggleWore, setDraft, toggleSkip, removeFavorite, saveFavorite,
     addGap, toggleGap, removeGap, addWish, removeWish, setProfile, resetAll, loadDemo,
     today: today(), tomorrow: addDays(today(), 1),
   }
@@ -178,7 +202,7 @@ function useStoreValue() {
 /** Silhouette closet for demos (Settings → Load demo closet). */
 function demoItems(): Item[] {
   const mk = (name: string, category: Category, color: string, warmth: Item['warmth'], dressLevel: Item['dressLevels'][number], context: Item['context'], demoKind: NonNullable<Item['demoKind']>): Item =>
-    ({ id: uid(), name, category, color, warmth, dressLevels: [dressLevel], context, delicate: false, status: 'active', tagged: true, demoKind, createdAt: new Date().toISOString() })
+    ({ id: uid(), name, category, colors: [color], warmth, dressLevels: [dressLevel], context, delicate: false, status: 'active', tagged: true, demoKind, createdAt: new Date().toISOString() })
   return [
     mk('Cream knit sweater', 'sweater', 'Cream', 'warm', 'work', 'both', 'knit'),
     mk('Black tee', 'top', 'Black', 'light', 'casual', 'both', 'top'),

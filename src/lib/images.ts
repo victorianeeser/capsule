@@ -65,14 +65,44 @@ async function trim(blob: Blob, clean = true): Promise<Blob> {
 }
 
 let lib: Promise<typeof import('@imgly/background-removal')> | null = null
+/** Use the graphics chip (WebGPU) when the browser offers one; fall back to the CPU if it fails. */
+let useGpu: boolean | null = null
+async function gpuAvailable() {
+  if (useGpu !== null) return useGpu
+  try { if (localStorage.getItem('capsule:gpu') === 'off') return (useGpu = false) } catch { /* private mode */ }
+  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu
+  try { useGpu = !!gpu && !!(await gpu.requestAdapter()) } catch { useGpu = false }
+  return useGpu
+}
+
 /** First call downloads the cut-out model (~40 MB, cached by the browser afterwards). */
 export async function cutOut(blob: Blob, onProgress?: (pct: number) => void): Promise<Blob> {
   lib ??= import('@imgly/background-removal')
   const { removeBackground } = await lib
-  const out = await removeBackground(blob, {
-    model: 'isnet_quint8',
+  const run = (device: 'gpu' | 'cpu') => removeBackground(blob, {
+    // The GPU path needs the full-precision model; the CPU path uses the smaller quantized one.
+    model: device === 'gpu' ? 'isnet_fp16' : 'isnet_quint8',
+    device,
     output: { format: 'image/webp', quality: 0.9 },
-    progress: (_key, cur, total) => onProgress?.(total ? cur / total : 0),
+    progress: (_key, cur, total) => { activity?.(); onProgress?.(total ? cur / total : 0) },
   })
+  let out: Blob
+  if (await gpuAvailable()) {
+    try { out = await withWatchdog(run, 'gpu') } catch (e) { console.warn('GPU cut-out failed, using CPU', e); useGpu = false; try { localStorage.setItem('capsule:gpu', 'off') } catch { /* ignore */ } out = await run('cpu') }
+  } else out = await run('cpu')
   return trim(await shrink(out))
 }
+
+/**
+ * Some browsers expose a graphics chip but never finish the job on it. Give up if nothing
+ * happens for 25 s (model download progress counts as activity), and use the CPU from then on.
+ */
+function withWatchdog(run: (d: 'gpu') => Promise<Blob>, d: 'gpu'): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    let timer = setTimeout(() => reject(new Error('GPU stalled')), 25000)
+    const poke = () => { clearTimeout(timer); timer = setTimeout(() => reject(new Error('GPU stalled')), 25000) }
+    activity = poke
+    run(d).then(resolve, reject).finally(() => { clearTimeout(timer); activity = undefined })
+  })
+}
+let activity: (() => void) | undefined

@@ -64,7 +64,7 @@ export function StatusBar({ dark = false }: { dark?: boolean }) {
 }
 
 const TABS = [
-  { key: 'home', label: 'Home', icon: 'home', to: '/home', match: ['/home', '/shop', '/settings'] },
+  { key: 'home', label: 'Home', icon: 'home', to: '/home', match: ['/home', '/shop', '/settings', '/favorites'] },
   { key: 'planner', label: 'Planner', icon: 'calendar', to: '/planner', match: ['/planner'] },
   { key: 'closet', label: 'Closet', icon: 'hanger', to: '/closet', match: ['/closet'] },
 ]

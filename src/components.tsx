@@ -52,7 +52,7 @@ export function autoLayout(items: Item[]): Placed[] {
  * Outfit collage that fits any arrangement (auto or saved from the Canvas) into a box,
  * keeping the arrangement's proportions and centering it.
  */
-export function Collage({ itemIds, layout, scale = 1, width = 300, height = 290, top = 48 }: { itemIds: string[]; layout?: Placed[]; scale?: number; width?: number; height?: number; top?: number }) {
+export function Collage({ itemIds, layout, scale = 1, width = 300, height = 290, top = 48, padX = 12 }: { itemIds: string[]; layout?: Placed[]; scale?: number; width?: number; height?: number; top?: number; padX?: number }) {
   const { state } = useStore()
   const items = itemIds.map((id) => state.items.find((i) => i.id === id)).filter(Boolean) as Item[]
   const saved = layout?.filter((p) => items.some((i) => i.id === p.itemId)) ?? []
@@ -60,15 +60,15 @@ export function Collage({ itemIds, layout, scale = 1, width = 300, height = 290,
   if (!pl.length) return null
   const x0 = Math.min(...pl.map((p) => p.x)), y0 = Math.min(...pl.map((p) => p.y))
   const x1 = Math.max(...pl.map((p) => p.x + p.s)), y1 = Math.max(...pl.map((p) => p.y + p.s))
-  const boxW = width - 24, boxH = height - top
+  const boxW = width - padX * 2, boxH = height - top
   const k = Math.min(boxW / (x1 - x0), boxH / (y1 - y0), 1.4) * scale
   const offX = (width - (x1 - x0) * k) / 2, offY = top + (boxH - (y1 - y0) * k) / 2
   return (
     <>
-      {pl.map((p) => {
+      {pl.map((p, n) => {
         const it = items.find((i) => i.id === p.itemId)!
         return (
-          <span key={p.itemId} className="absolute" style={{ left: offX + (p.x - x0) * k, top: offY + (p.y - y0) * k }}>
+          <span key={p.key ?? `${p.itemId}-${n}`} className="absolute" style={{ left: offX + (p.x - x0) * k, top: offY + (p.y - y0) * k, transform: p.flip ? 'scaleX(-1)' : undefined }}>
             <ItemImage item={it} size={p.s * k} />
           </span>
         )

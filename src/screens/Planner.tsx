@@ -4,7 +4,7 @@ import { BackBar, Button, Card, Chip, CircleButton, Eyebrow, Header, Icon, Pill,
 import { useStore } from '../lib/store'
 import { ACTIVITIES, CATEGORIES, CATEGORY_LABEL, type Activity, type Category, type Item, type Placed, type PlannedOutfit } from '../lib/types'
 import { addDays, dayShort, fmtLong, fmtShort, iso, monday, monthTitle, parse, weekStart } from '../lib/dates'
-import { dayInfo, occasionLabel } from '../lib/suggest'
+import { autoSuggests, dayInfo, occasionLabel } from '../lib/suggest'
 import { deg, isRainy, condition } from '../lib/weather'
 import { autoLayout, Collage, Empty, ItemImage, Thumbs } from '../components'
 
@@ -114,9 +114,24 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
 }
 
 function SuggestionCard({ date }: { date: string }) {
-  const { state, suggestFor, plan, addGap } = useStore()
+  const { state, suggestFor, plan, addGap, toggleSkip } = useStore()
+  const [ask, setAsk] = useState(false)
+  useEffect(() => setAsk(false), [date])
   const s = suggestFor(date)
   const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
+  if (hasCloset && !ask && !autoSuggests(state, date)) {
+    const skipped = state.skipped.includes(date)
+    return (
+      <div className="flex h-[220px] w-[350px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[22px] bg-surface px-6 text-center">
+        <p className="text-[16px] font-semibold">{skipped ? 'No outfit needed' : 'Nothing planned'}</p>
+        <p className="text-[13px] leading-[1.4] text-text/65">{skipped ? 'You marked this day as no outfit needed.' : `${occasionLabel(state, date)} — no outfit suggested.`}</p>
+        <div className="mt-2 flex gap-4 text-[14px] font-semibold">
+          {skipped && <button className="underline" onClick={() => toggleSkip(date)}>Undo</button>}
+          <button className="underline" onClick={() => setAsk(true)}>Suggest an outfit</button>
+        </div>
+      </div>
+    )
+  }
   if (!hasCloset) return <div className="w-[350px]"><Empty title="Nothing to plan with yet" body="Add a few pieces to your closet and Capsule will suggest outfits." action={<Button to="/closet/add">Add pieces</Button>} /></div>
   return (
     <div className="relative h-[400px] w-[350px] shrink-0 overflow-hidden rounded-[22px] border-[1.5px] border-dashed border-accent">
@@ -184,6 +199,13 @@ export function PlannerDay() {
 }
 
 /* ---------------- Month ---------------- */
+/** The day page's outfit arrangement, shrunk to fit a calendar cell. */
+function MiniCollage({ itemIds, layout }: { itemIds: string[]; layout?: Placed[] }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [w, setW] = useState(46)
+  useEffect(() => { if (ref.current) setW(ref.current.offsetWidth) }, [])
+  return <span ref={ref} className="absolute inset-0"><Collage itemIds={itemIds} layout={layout} width={w} height={66} top={3} padX={2} /></span>
+}
 export function PlannerMonth() {
   const { state, setDraft, today } = useStore()
   const nav = useNavigate()
@@ -211,17 +233,18 @@ export function PlannerMonth() {
           {cells.map((d) => {
             const inMonth = d.slice(0, 7) === m
             const p = state.planned.filter((x) => x.date === d).sort((a, b) => a.position - b.position)[0]
-            const ids = p ? state.outfits.find((o) => o.id === p.outfitId)?.itemIds ?? [] : []
+            const o = p ? state.outfits.find((x) => x.id === p.outfitId) : undefined
+            const ids = o?.itemIds ?? []
             const isToday = d === today
             return (
               <div key={d} className="flex flex-col items-center gap-1 border-t border-border pt-1">
                 <span className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] font-medium ${isToday ? 'bg-primary text-cloud' : !inMonth ? 'text-text/30' : ''}`}>{parse(d).getDate()}</span>
                 {inMonth ? (
                   <button onClick={() => { if (p) nav(`/planner?date=${d}`); else { setDraft({ date: d, itemIds: [], occasion: occasionLabel(state, d) }); nav(`/planner/add?date=${d}`) } }}
-                    className={`flex h-[62px] w-full flex-col items-center justify-center overflow-hidden rounded-sm ${p ? 'bg-surface' : 'bg-soft text-[22px] text-text/45'}`}>
-                    {p ? <Thumbs itemIds={ids} size={ids.length > 2 ? 20 : 26} max={3} bg={false} /> : '+'}
+                    className={`relative flex h-[66px] w-full flex-col items-center justify-center overflow-hidden rounded-sm ${p ? 'bg-surface' : 'bg-soft text-[22px] text-text/45'}`}>
+                    {p ? <MiniCollage itemIds={ids} layout={o?.layout} /> : '+'}
                   </button>
-                ) : <span className="h-[62px]" />}
+                ) : <span className="h-[66px]" />}
               </div>
             )
           })}
@@ -309,52 +332,99 @@ export function AddOutfit() {
   )
 }
 
-/* ---------------- Canvas (drag to arrange; layout is saved with the outfit) ---------------- */
+/* ---------------- Canvas (drag to arrange; tap a piece to resize, flip, duplicate or remove) ---------------- */
+const newKey = () => Math.random().toString(36).slice(2, 9)
 export function Canvas() {
-  const { state } = useStore()
+  const { state, saveFavorite, removeFavorite } = useStore()
   const nav = useNavigate()
   const { draft, setDraft } = useDraft()
   const items = draft.itemIds.map((id) => state.items.find((i) => i.id === id)).filter(Boolean) as Item[]
   const base = (draft.layout?.length ? draft.layout : []).filter((l) => items.some((i) => i.id === l.itemId))
   const missing = items.filter((i) => !base.some((b) => b.itemId === i.id))
-  const initial: Placed[] = [...base, ...autoLayout(missing).map((p) => ({ ...p, x: p.x * 1.25, y: p.y * 1.25 + 40, s: p.s * 1.25 }))]
+  const initial: Placed[] = [...base, ...autoLayout(missing).map((p) => ({ ...p, x: p.x * 1.25, y: p.y * 1.25 + 40, s: p.s * 1.25 }))].map((p) => ({ ...p, key: p.key ?? newKey() }))
   const [placed, setPlaced] = useState<Placed[]>(initial)
+  const [sel, setSel] = useState<string | null>(null)
   useEffect(() => { setPlaced(initial) }, [draft.itemIds.join()]) // eslint-disable-line react-hooks/exhaustive-deps
-  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null)
+  const drag = useRef<{ key: string; mode: 'move' | 'size'; dx: number; dy: number; x0: number; s0: number } | null>(null)
   const area = useRef<HTMLDivElement>(null)
+  const zoomOf = () => { const r = area.current!.getBoundingClientRect(); return { r, z: r.width / area.current!.offsetWidth || 1 } }
   const move = (e: React.PointerEvent) => {
     if (!drag.current || !area.current) return
-    const r = area.current.getBoundingClientRect()
-    const z = r.width / area.current.offsetWidth || 1
-    const { id, dx, dy } = drag.current
-    setPlaced((ps) => ps.map((p) => (p.itemId === id ? { ...p, x: (e.clientX - r.left) / z - dx, y: (e.clientY - r.top) / z - dy } : p)))
+    const { r, z } = zoomOf()
+    const { key, mode, dx, dy, x0, s0 } = drag.current
+    const px = (e.clientX - r.left) / z, py = (e.clientY - r.top) / z
+    setPlaced((ps) => ps.map((p) => (p.key !== key ? p : mode === 'move' ? { ...p, x: px - dx, y: py - dy } : { ...p, s: Math.max(40, Math.min(420, s0 + (px - x0))) })))
   }
-  const keep = () => setDraft({ ...draft, layout: placed })
+  const keep = (ps = placed) => setDraft({ ...draft, layout: ps })
+  const change = (f: (ps: Placed[]) => Placed[]) => { const next = f(placed); setPlaced(next); keep(next) }
+  const cur = placed.find((p) => p.key === sel)
+  const resize = (k: number) => change((ps) => ps.map((p) => (p.key === sel ? { ...p, s: Math.max(40, Math.min(420, p.s * k)) } : p)))
+  const flip = () => change((ps) => ps.map((p) => (p.key === sel ? { ...p, flip: !p.flip } : p)))
+  const duplicate = () => { if (!cur) return; const k = newKey(); change((ps) => [...ps, { ...cur, key: k, x: cur.x + 24, y: cur.y + 24 }]); setSel(k) }
+  const remove = () => {
+    if (!cur) return
+    const rest = placed.filter((p) => p.key !== sel)
+    const stillUsed = rest.some((p) => p.itemId === cur.itemId)
+    setSel(null); setPlaced(rest)
+    setDraft({ ...draft, layout: rest, itemIds: stillUsed ? draft.itemIds : draft.itemIds.filter((x) => x !== cur.itemId) })
+  }
+  const toggleFav = () => {
+    if (draft.favoriteId) { removeFavorite(draft.favoriteId); setDraft({ ...draft, layout: placed, favoriteId: undefined }) }
+    else if (items.length) setDraft({ ...draft, layout: placed, favoriteId: saveFavorite(draft.itemIds, placed) })
+  }
+  const tool = (label: string, icon: React.ReactNode, onClick: () => void) => (
+    <button onClick={onClick} className="flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-cloud">{icon}{label}</button>
+  )
   return (
     <Screen dark pad={false}>
-      <div ref={area} onPointerMove={move} onPointerUp={() => { drag.current = null; keep() }} className="relative h-[630px] shrink-0 touch-none overflow-hidden rounded-[28px] bg-bg">
+      <div ref={area} onPointerMove={move} onPointerUp={() => { if (drag.current) { drag.current = null; keep() } }}
+        onPointerDown={(e) => { if (e.target === e.currentTarget) setSel(null) }}
+        className="relative h-[630px] shrink-0 touch-none overflow-hidden rounded-[28px] bg-bg">
         <CircleButton className="absolute top-[18px] left-[18px] z-10 !bg-cloud" onClick={() => { keep(); nav(-1) }} />
-        <button onClick={() => { keep(); nav('/planner/details') }} className="absolute top-[18px] right-[18px] z-10 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-[15px] font-semibold text-cloud">Next <Icon name="arrow" size={18} /></button>
+        <div className="absolute top-[18px] right-[18px] z-10 flex items-center gap-2">
+          <button onClick={toggleFav} aria-label={draft.favoriteId ? 'Remove from favorites' : 'Save to favorites'} aria-pressed={!!draft.favoriteId}
+            className={`flex h-10 w-10 items-center justify-center rounded-full ${draft.favoriteId ? 'bg-primary text-cloud' : 'bg-cloud'}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={draft.favoriteId ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
+          </button>
+          <button onClick={() => { keep(); nav('/planner/details') }} className="flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-[15px] font-semibold text-cloud">Next <Icon name="arrow" size={18} /></button>
+        </div>
         {placed.map((p) => {
           const it = items.find((i) => i.id === p.itemId)
           if (!it) return null
+          const on = p.key === sel
           return (
-            <div key={p.itemId} className="absolute cursor-grab active:cursor-grabbing" style={{ left: p.x, top: p.y }}
+            <div key={p.key} className={`absolute cursor-grab active:cursor-grabbing ${on ? 'outline-[1.5px] outline-dashed outline-accent' : ''}`} style={{ left: p.x, top: p.y, width: p.s, height: p.s }}
               onPointerDown={(e) => {
                 const el = e.currentTarget as HTMLElement
                 const r = el.getBoundingClientRect(); const z = r.width / el.offsetWidth || 1
-                drag.current = { id: p.itemId, dx: (e.clientX - r.left) / z, dy: (e.clientY - r.top) / z }
-                setPlaced((ps) => [...ps.filter((x) => x.itemId !== p.itemId), p])
+                drag.current = { key: p.key!, mode: 'move', dx: (e.clientX - r.left) / z, dy: (e.clientY - r.top) / z, x0: 0, s0: p.s }
+                setSel(p.key!)
+                setPlaced((ps) => [...ps.filter((x) => x.key !== p.key), p])
               }}>
-              <ItemImage item={it} size={p.s} />
+              <span className="block" style={{ transform: p.flip ? 'scaleX(-1)' : undefined }}><ItemImage item={it} size={p.s} /></span>
+              {on && (
+                <span aria-label="Drag to resize" className="absolute -right-2.5 -bottom-2.5 h-6 w-6 cursor-nwse-resize rounded-full border-2 border-bg bg-primary"
+                  onPointerDown={(e) => { e.stopPropagation(); const { r, z } = zoomOf(); drag.current = { key: p.key!, mode: 'size', dx: 0, dy: 0, x0: (e.clientX - r.left) / z, s0: p.s } }} />
+              )}
             </div>
           )
         })}
         {!items.length && <p className="absolute inset-x-0 top-1/2 text-center text-[14px] text-text/55">Tap “Add clothes” to start</p>}
-        <p className="absolute inset-x-0 bottom-3 text-center text-[12px] text-text/45">Drag to arrange</p>
+        <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[12px] text-text/45">{sel ? 'Drag the dot to resize' : 'Drag to arrange · tap a piece to edit it'}</p>
       </div>
       <div className="px-4 pt-3">
-        <button onClick={() => { keep(); nav('/planner/add-clothes') }} className="flex w-full flex-col items-center gap-1.5 rounded-md bg-primary-2 py-3 text-[12px] font-medium text-cloud"><Icon name="addTop" />Add clothes</button>
+        {cur ? (
+          <div className="flex rounded-md bg-primary-2">
+            {tool('Smaller', <span className="text-[20px] leading-6">−</span>, () => resize(1 / 1.15))}
+            {tool('Bigger', <span className="text-[20px] leading-6">+</span>, () => resize(1.15))}
+            {tool('Flip', <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3v18M9 7 3 17h6zM15 7l6 10h-6z" /></svg>, flip)}
+            {tool('Duplicate', <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 5H6a2 2 0 0 0-2 2v9" /></svg>, duplicate)}
+            {tool('Remove', <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" /></svg>, remove)}
+            {tool('Done', <Icon name="check" size={24} />, () => setSel(null))}
+          </div>
+        ) : (
+          <button onClick={() => { keep(); nav('/planner/add-clothes') }} className="flex w-full flex-col items-center gap-1.5 rounded-md bg-primary-2 py-3 text-[12px] font-medium text-cloud"><Icon name="addTop" />Add clothes</button>
+        )}
       </div>
     </Screen>
   )
@@ -390,7 +460,7 @@ export function AddClothes() {
 /* ---------------- Outfit details ---------------- */
 const OCCASIONS = ['Work day', 'Off day', ...ACTIVITIES]
 export function OutfitDetails() {
-  const { state, plan, setDraft, weatherFor } = useStore()
+  const { state, plan, setDraft, weatherFor, removeFavorite } = useStore()
   const nav = useNavigate()
   const { draft } = useDraft()
   const [date, setDate] = useState(draft.date)
@@ -398,10 +468,11 @@ export function OutfitDetails() {
   const [occ, setOcc] = useState(OCCASIONS.includes(base) ? base : 'Off day')
   const [note, setNote] = useState(draft.note ?? '')
   const existing = draft.editingId ? state.planned.find((p) => p.id === draft.editingId) : undefined
-  const [fav, setFav] = useState(existing ? !!state.outfits.find((o) => o.id === existing.outfitId)?.isFavorite : false)
+  const [fav, setFav] = useState(!!draft.favoriteId || (existing ? !!state.outfits.find((o) => o.id === existing.outfitId)?.isFavorite : false))
   const w = weatherFor(date)
   const save = () => {
     const occasion = occ === 'Work day' ? `Work day · ${state.profile.workHours}` : occ
+    if (draft.favoriteId) removeFavorite(draft.favoriteId) // the hearted copy is replaced by this saved outfit
     plan({ date, itemIds: draft.itemIds, layout: draft.layout, occasion, note, reason: draft.reason, suggested: draft.suggested, editingId: date === draft.date ? draft.editingId : undefined, favorite: fav })
     setDraft(undefined)
     nav(`/planner?date=${date}`, { replace: true })
