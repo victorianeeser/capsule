@@ -63,3 +63,37 @@
 @media (max-width: 599px) {
   .phone { padding-top: env(safe-area-inset-top); }
 }
+
+/* ------------------------------------------------------------------
+   Motion — screens slide in when you go deeper, slide back when you
+   return, and cross-fade between tabs. Sheets rise, panels unfold,
+   buttons give a little press. All of it switches off for people who
+   ask their phone to reduce motion.
+   ------------------------------------------------------------------ */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-screen: 320ms;
+  --dur-fast: 180ms;
+}
+@keyframes enter-push { from { opacity: 0; transform: translateX(28%); } to { opacity: 1; transform: none; } }
+@keyframes enter-back { from { opacity: 0; transform: translateX(-18%); } to { opacity: 1; transform: none; } }
+@keyframes enter-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes enter-sheet { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes unfold { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+
+.enter-push  { animation: enter-push var(--dur-screen) var(--ease-out) both; }
+.enter-back  { animation: enter-back var(--dur-screen) var(--ease-out) both; }
+.enter-fade  { animation: enter-fade var(--dur-fast) ease-out both; }
+.enter-sheet { animation: enter-sheet var(--dur-screen) var(--ease-out) both; }
+.unfold      { animation: unfold var(--dur-fast) ease-out both; }
+.pop-in      { animation: pop-in var(--dur-fast) ease-out both; }
+
+/* Tap feedback for buttons, cards and chips */
+.press { transition: transform 120ms ease, opacity 120ms ease, background-color 150ms ease, color 150ms ease; }
+.press:active { transform: scale(0.97); opacity: 0.85; }
+
+@media (prefers-reduced-motion: reduce) {
+  .enter-push, .enter-back, .enter-fade, .enter-sheet, .unfold, .pop-in { animation: none; }
+  .press:active { transform: none; }
+}

@@ -69,7 +69,7 @@ function useDayOutfit(date: string, ask = false) {
 /** Shown instead of a suggestion on off days and "No outfit needed" days. */
 function QuietDay({ skipped, onSuggest, onBuild, onUndo, when }: { skipped: boolean; onSuggest: () => void; onBuild: () => void; onUndo: () => void; when: string }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-md bg-cloud px-4 py-6 text-center">
+    <div className="pop-in flex flex-col items-center gap-1 rounded-md bg-cloud px-4 py-6 text-center">
       <p className="text-[16px] font-semibold">{skipped ? 'No outfit needed' : 'Nothing planned'}</p>
       <p className="text-[13px] leading-[1.4] text-text/65">{skipped ? `Enjoy ${when}. Nothing will be suggested.` : 'Off day — no outfit suggested. Want one anyway?'}</p>
       <div className="mt-2 flex gap-4 text-[14px] font-semibold">
@@ -150,7 +150,7 @@ function ForYou() {
 }
 
 function ActionButton({ children, primary = false, onClick }: { children: ReactNode; primary?: boolean; onClick: () => void }) {
-  return <button onClick={onClick} className={`w-full rounded-md px-5 py-[15px] text-[16px] font-semibold ${primary ? 'bg-primary text-cloud' : 'border-[1.5px] border-primary'}`}>{children}</button>
+  return <button onClick={onClick} className={`press w-full rounded-md px-5 py-[15px] text-[16px] font-semibold ${primary ? 'bg-primary text-cloud' : 'border-[1.5px] border-primary'}`}>{children}</button>
 }
 
 function SkipLink({ children, onClick }: { children: ReactNode; onClick: () => void }) {

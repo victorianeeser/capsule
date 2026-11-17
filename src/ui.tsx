@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { useEnterClass } from './lib/motion'
 
 /* ---------------- Icons (thin line, matches the wireframe set) ---------------- */
 const ICONS: Record<string, string> = {
@@ -76,7 +77,7 @@ export function TabBar() {
         {TABS.map((t) => {
           const on = t.match.some((m) => pathname.startsWith(m))
           return (
-            <Link key={t.key} to={t.to} className={`flex flex-1 flex-col items-center gap-1 py-1 ${on ? 'text-text' : 'text-text/45'}`}>
+            <Link key={t.key} to={t.to} className={`press flex flex-1 flex-col items-center gap-1 py-1 ${on ? 'text-text' : 'text-text/45'}`}>
               <Icon name={t.icon} size={24} />
               <span className={`text-[11px] ${on ? 'font-semibold' : 'font-medium'}`}>{t.label}</span>
             </Link>
@@ -97,10 +98,11 @@ export function HomeIndicator({ dark = false }: { dark?: boolean }) {
 
 /** One app screen: status bar, scrolling content, and either the tab bar or a home indicator. */
 export function Screen({ children, tabs = false, pad = true, className = '', dark = false }: { children: ReactNode; tabs?: boolean; pad?: boolean; className?: string; dark?: boolean }) {
+  const enter = useEnterClass()
   return (
     <div className={`flex h-full flex-col ${dark ? 'bg-primary' : 'bg-bg'}`}>
       <StatusBar dark={dark} />
-      <main className={`no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto ${pad ? 'px-5 pt-1 pb-5' : ''} ${className}`}>{children}</main>
+      <main className={`${enter} no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto ${pad ? 'px-5 pt-1 pb-5' : ''} ${className}`}>{children}</main>
       {tabs ? <TabBar /> : <HomeIndicator dark={dark} />}
     </div>
   )
@@ -135,7 +137,7 @@ export function Button({ children, to, onClick, variant = 'primary', full = true
   return (
     <button
       onClick={() => (onClick ? onClick() : to === 'back' ? nav(-1) : to && nav(to))}
-      className={`${full ? 'w-full' : ''} rounded-md px-5 py-[15px] text-[16px] font-semibold ${styles} ${className}`}
+      className={`press ${full ? 'w-full' : ''} rounded-md px-5 py-[15px] text-[16px] font-semibold ${styles} ${className}`}
     >
       {children}
     </button>
@@ -146,7 +148,7 @@ export function Chip({ label, selected = false, onClick, small = false }: { labe
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 rounded-full border ${small ? 'px-3 py-1.5 text-[13px]' : 'px-[15px] py-[9px] text-[14px]'} font-medium transition-colors ${
+      className={`shrink-0 rounded-full border ${small ? 'px-3 py-1.5 text-[13px]' : 'px-[15px] py-[9px] text-[14px]'} font-medium press ${
         selected ? 'border-primary bg-primary text-cloud' : 'border-border bg-bg text-text'
       }`}
     >
@@ -169,7 +171,7 @@ export function ChipGroup({ options, initial = [], multi = false, wrap = true }:
 }
 
 export function Card({ children, className = '', to, onClick }: { children: ReactNode; className?: string; to?: string; onClick?: () => void }) {
-  const cls = `block rounded-lg bg-surface p-4 text-left ${className}`
+  const cls = `press block rounded-lg bg-surface p-4 text-left ${className}`
   if (to) return <Link to={to} className={cls}>{children}</Link>
   if (onClick) return <button onClick={onClick} className={`${cls} w-full`}>{children}</button>
   return <div className={cls}>{children}</div>
@@ -224,7 +226,7 @@ export function SearchField({ placeholder, value, to }: { placeholder: string; v
 export function CircleButton({ icon = 'back', onClick, className = '' }: { icon?: string; onClick?: () => void; className?: string }) {
   const nav = useNavigate()
   return (
-    <button onClick={onClick ?? (() => nav(-1))} className={`flex h-10 w-10 items-center justify-center rounded-full bg-surface ${className}`} aria-label={icon}>
+    <button onClick={onClick ?? (() => nav(-1))} className={`press flex h-10 w-10 items-center justify-center rounded-full bg-surface ${className}`} aria-label={icon}>
       <Icon name={icon} size={20} />
     </button>
   )
@@ -232,7 +234,7 @@ export function CircleButton({ icon = 'back', onClick, className = '' }: { icon?
 
 export function Pill({ children, onClick, className = '' }: { children: ReactNode; onClick?: () => void; className?: string }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-1.5 rounded-full bg-surface px-3.5 py-2 text-[14px] font-semibold ${className}`}>
+    <button onClick={onClick} className={`press flex items-center gap-1.5 rounded-full bg-surface px-3.5 py-2 text-[14px] font-semibold ${className}`}>
       {children}
     </button>
   )
@@ -275,7 +277,7 @@ export function SelectTile({ kind, initial = false, onChange }: { kind: GarmentK
         setOn(!on)
         onChange?.(!on)
       }}
-      className="relative flex aspect-[1.08] items-center justify-center"
+      className="press relative flex aspect-[1.08] items-center justify-center"
     >
       <Garment kind={kind} size={92} />
       <span className={`absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] ${on ? 'border-primary bg-primary text-cloud' : 'border-accent'}`}>

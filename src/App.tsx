@@ -7,6 +7,7 @@ import { Closet, AddItems, TagItem, ItemDetail, Audit } from './screens/Closet'
 import { Shop, SearchResult, WouldThisGo, Gaps, Wishlist, NewWish } from './screens/Shop'
 import { Settings } from './screens/Settings'
 import { useStore } from './lib/store'
+import { MotionProvider } from './lib/motion'
 
 const ROUTES: [string, () => React.JSX.Element][] = [
   ['/onboarding/routine', Routine], ['/onboarding/city', City], ['/onboarding/pieces', FirstPieces],
@@ -38,11 +39,13 @@ export default function App() {
   return (
     <div className="stage">
       <div className="phone">
+        <MotionProvider>
         <Routes>
           <Route path="/" element={state.profile.onboarded ? <Navigate to="/home" replace /> : <Welcome />} />
           {ROUTES.map(([path, C]) => <Route key={path} path={path} element={<C />} />)}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </MotionProvider>
       </div>
     </div>
   )

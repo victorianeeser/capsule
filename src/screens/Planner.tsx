@@ -88,6 +88,7 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
   const nav = useNavigate()
   const o = state.outfits.find((x) => x.id === p.outfitId)
   const [menu, setMenu] = useState(false)
+  const [confirm, setConfirm] = useState(false)
   const [note, setNoteText] = useState(p.note)
   if (!o) return null
   const edit = () => { setDraft({ date: p.date, itemIds: o.itemIds, layout: o.layout, editingId: p.id, occasion: p.occasion, note: p.note }); nav('/planner/canvas') }
@@ -99,9 +100,21 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
       </div>
       <button onClick={(e) => { e.stopPropagation(); setMenu(!menu) }} className="absolute top-3.5 right-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-cloud" aria-label="More"><Icon name="more" size={20} /></button>
       {menu && (
-        <div onClick={(e) => e.stopPropagation()} className="absolute top-14 right-3.5 z-30 flex w-40 flex-col rounded-md border border-border bg-bg py-1 text-[14px]">
+        <div onClick={(e) => e.stopPropagation()} className="unfold absolute top-14 right-3.5 z-30 flex w-40 flex-col rounded-md border border-border bg-bg py-1 text-[14px]">
           <button onClick={edit} className="px-4 py-2.5 text-left">Edit outfit</button>
-          <button onClick={() => { unplan(p.id); setMenu(false) }} className="px-4 py-2.5 text-left">Remove from day</button>
+          <button onClick={() => { setMenu(false); setConfirm(true) }} className="px-4 py-2.5 text-left">Remove from day</button>
+        </div>
+      )}
+      {confirm && (
+        <div onClick={(e) => { e.stopPropagation(); setConfirm(false) }} className="enter-fade absolute inset-0 z-40 flex items-center justify-center bg-text/35 p-5">
+          <div onClick={(e) => e.stopPropagation()} role="alertdialog" aria-label="Remove outfit from day" className="pop-in flex w-full flex-col gap-3 rounded-lg bg-bg p-5 text-center">
+            <p className="text-[16px] font-semibold">Remove this outfit?</p>
+            <p className="text-[13px] leading-[1.4] text-text/65">It comes off {new Date(p.date + 'T12:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}. Your pieces and favorites stay as they are.</p>
+            <div className="mt-1 flex gap-2.5">
+              <Button variant="secondary" onClick={() => setConfirm(false)}>Cancel</Button>
+              <Button onClick={() => { setConfirm(false); unplan(p.id) }}>Remove</Button>
+            </div>
+          </div>
         </div>
       )}
       <Collage itemIds={o.itemIds} layout={o.layout} width={350} top={58} height={330} />
@@ -122,7 +135,7 @@ function SuggestionCard({ date }: { date: string }) {
   if (hasCloset && !ask && !autoSuggests(state, date)) {
     const skipped = state.skipped.includes(date)
     return (
-      <div className="flex h-[220px] w-[350px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[22px] bg-surface px-6 text-center">
+      <div className="pop-in flex h-[220px] w-[350px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-[22px] bg-surface px-6 text-center">
         <p className="text-[16px] font-semibold">{skipped ? 'No outfit needed' : 'Nothing planned'}</p>
         <p className="text-[13px] leading-[1.4] text-text/65">{skipped ? 'You marked this day as no outfit needed.' : `${occasionLabel(state, date)} — no outfit suggested.`}</p>
         <div className="mt-2 flex gap-4 text-[14px] font-semibold">
@@ -314,7 +327,7 @@ export function AddOutfit() {
         ))}
       </div>
       {panel && (
-        <div className="no-scrollbar flex gap-2 overflow-x-auto px-5 pt-3">
+        <div key={panel} className="unfold no-scrollbar flex gap-2 overflow-x-auto px-5 pt-3">
           {list.length ? list.map((o) => (
             <button key={o.id} onClick={() => { setDraft({ ...draft, itemIds: o.itemIds, layout: o.layout }); nav('/planner/canvas') }} className="shrink-0 rounded-md bg-surface p-2"><Thumbs itemIds={o.itemIds} size={30} bg={false} /></button>
           )) : <p className="text-[13px] text-text-muted">{panel === 'favorites' ? 'No favorites yet — turn on “Save to favorites” when you save an outfit.' : 'Nothing worn yet — tap “Wore it” on Home.'}</p>}
@@ -414,7 +427,7 @@ export function Canvas() {
       </div>
       <div className="px-4 pt-3">
         {cur ? (
-          <div className="flex rounded-md bg-primary-2">
+          <div className="pop-in flex rounded-md bg-primary-2">
             {tool('Smaller', <span className="text-[20px] leading-6">−</span>, () => resize(1 / 1.15))}
             {tool('Bigger', <span className="text-[20px] leading-6">+</span>, () => resize(1.15))}
             {tool('Flip', <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3v18M9 7 3 17h6zM15 7l6 10h-6z" /></svg>, flip)}
@@ -423,7 +436,7 @@ export function Canvas() {
             {tool('Done', <Icon name="check" size={24} />, () => setSel(null))}
           </div>
         ) : (
-          <button onClick={() => { keep(); nav('/planner/add-clothes') }} className="flex w-full flex-col items-center gap-1.5 rounded-md bg-primary-2 py-3 text-[12px] font-medium text-cloud"><Icon name="addTop" />Add clothes</button>
+          <button onClick={() => { keep(); nav('/planner/add-clothes') }} className="pop-in press flex w-full flex-col items-center gap-1.5 rounded-md bg-primary-2 py-3 text-[12px] font-medium text-cloud"><Icon name="addTop" />Add clothes</button>
         )}
       </div>
     </Screen>

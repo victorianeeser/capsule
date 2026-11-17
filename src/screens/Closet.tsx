@@ -80,7 +80,7 @@ export function Closet() {
               </button>
             </div>
             {open && (
-              <div className="flex flex-col gap-3 rounded-md bg-surface p-3.5">
+              <div className="unfold flex flex-col gap-3 rounded-md bg-surface p-3.5">
                 <div className="flex flex-col gap-1.5">
                   <Eyebrow className="text-[11px]">Sort by</Eyebrow>
                   <div className="flex flex-wrap gap-2">{SORTS.map(([v, l]) => <Chip key={v} label={l} small selected={sort === v} onClick={() => setSort(v)} />)}</div>

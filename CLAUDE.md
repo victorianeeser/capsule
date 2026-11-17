@@ -87,6 +87,7 @@ The app is **fully functional on-device** (no backend yet). Decisions made with 
 - **State/actions:** `src/lib/store.tsx` (React context). Types in `src/lib/types.ts`. Home greeting follows the time of day; `/home` = today, `/home/evening` = plan tomorrow.
 - **Add outfit options** are Suggested / Favorites / Recent (the wireframe's "Outfit photo" option was replaced so every option works).
 - **PWA:** `vite-plugin-pwa` — installable, offline app shell, runtime caching for weather, model files and fonts. Icons in `public/` (192/512/apple-touch).
+- **Motion** (2026-11-17, CSS only, no library): `src/lib/motion.tsx` picks each screen's entrance — going deeper slides in from the right, Back slides in from the left, tab/view switches (Home, Planner Day↔Month, Closet) cross-fade, Add clothes rises as a sheet. Classes and timing tokens (`--ease-out`, `--dur-screen`, `--dur-fast`) live in `src/index.css`; `.press` gives tap feedback, `.unfold`/`.pop-in` for panels and swapped cards. Turned off when the phone asks to reduce motion.
 - **Demo:** Settings → "Load demo closet" adds silhouette pieces; Settings → "Erase everything" resets the device.
 - Still to do for v1: Supabase accounts + cross-device sync, deploy (Vercel/Netlify), warning/error colors.
 
