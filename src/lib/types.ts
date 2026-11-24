@@ -62,6 +62,7 @@ export interface Profile {
   workHours: string
   repeatDays: number      // don't repeat a piece within N days
   firstPiecesGoal: number
+  theme?: 'light' | 'dark' | 'system'   // Settings → Appearance (default light)
 }
 
 /** In-progress outfit while moving through Add outfit → Canvas → Details. */

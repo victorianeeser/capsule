@@ -8,6 +8,7 @@ import { Shop, SearchResult, WouldThisGo, Gaps, Wishlist, NewWish } from './scre
 import { Settings } from './screens/Settings'
 import { useStore } from './lib/store'
 import { MotionProvider } from './lib/motion'
+import { useTheme } from './lib/theme'
 
 const ROUTES: [string, () => React.JSX.Element][] = [
   ['/onboarding/routine', Routine], ['/onboarding/city', City], ['/onboarding/pieces', FirstPieces],
@@ -36,6 +37,7 @@ function useFitPhone() {
 export default function App() {
   useFitPhone()
   const { state } = useStore()
+  useTheme(state.profile.theme)
   return (
     <div className="stage">
       <div className="phone">

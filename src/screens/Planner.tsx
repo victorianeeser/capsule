@@ -117,6 +117,7 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
           </div>
         </div>
       )}
+      <div className="absolute inset-x-3 top-[52px] bottom-[56px] rounded-[16px] bg-tile" />
       <Collage itemIds={o.itemIds} layout={o.layout} width={350} top={58} height={330} />
       <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
         {p.reason && <p className="text-[12px] text-text/70">{p.reason}</p>}
@@ -152,6 +153,7 @@ function SuggestionCard({ date }: { date: string }) {
         <span className="rounded-full bg-primary/80 px-3 py-[7px] text-[13px] font-medium text-cloud">{s.occasion}</span>
         <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggestion</span>
       </div>
+      <div className="absolute inset-x-3 top-[52px] bottom-[96px] rounded-[16px] bg-tile" />
       <div className="opacity-90"><Collage itemIds={s.itemIds} width={350} top={58} height={275} /></div>
       <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-2">
         {s.reason && <p className="text-[12px] text-text/70">{s.reason}</p>}
@@ -254,7 +256,7 @@ export function PlannerMonth() {
                 <span className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] font-medium ${isToday ? 'bg-primary text-cloud' : !inMonth ? 'text-text/30' : ''}`}>{parse(d).getDate()}</span>
                 {inMonth ? (
                   <button onClick={() => { if (p) nav(`/planner?date=${d}`); else { setDraft({ date: d, itemIds: [], occasion: occasionLabel(state, d) }); nav(`/planner/add?date=${d}`) } }}
-                    className={`relative flex h-[66px] w-full flex-col items-center justify-center overflow-hidden rounded-sm ${p ? 'bg-surface' : 'bg-soft text-[22px] text-text/45'}`}>
+                    className={`relative flex h-[66px] w-full flex-col items-center justify-center overflow-hidden rounded-sm ${p ? 'bg-tile' : 'bg-soft text-[22px] text-text/45'}`}>
                     {p ? <MiniCollage itemIds={ids} layout={o?.layout} /> : '+'}
                   </button>
                 ) : <span className="h-[66px]" />}
@@ -277,7 +279,7 @@ function ItemGrid({ selected, onToggle, category, leading }: { selected: string[
       {items.map((it) => {
         const on = selected.includes(it.id)
         return (
-          <button key={it.id} onClick={() => onToggle(it.id)} className="relative flex aspect-[1.08] items-center justify-center">
+          <button key={it.id} onClick={() => onToggle(it.id)} className="relative flex aspect-[1.08] items-center justify-center rounded-md bg-tile">
             <ItemImage item={it} size={92} />
             <span className={`absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full border-[1.5px] ${on ? 'border-primary bg-primary text-cloud' : 'border-accent bg-bg/60'}`}>{on && <Icon name="check" size={15} strokeWidth={2.4} />}</span>
           </button>
@@ -386,13 +388,13 @@ export function Canvas() {
     else if (items.length) setDraft({ ...draft, layout: placed, favoriteId: saveFavorite(draft.itemIds, placed) })
   }
   const tool = (label: string, icon: React.ReactNode, onClick: () => void) => (
-    <button onClick={onClick} className="flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-cloud">{icon}{label}</button>
+    <button onClick={onClick} className="flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-on-ink">{icon}{label}</button>
   )
   return (
     <Screen dark pad={false}>
       <div ref={area} onPointerMove={move} onPointerUp={() => { if (drag.current) { drag.current = null; keep() } }}
         onPointerDown={(e) => { if (e.target === e.currentTarget) setSel(null) }}
-        className="relative h-[630px] shrink-0 touch-none overflow-hidden rounded-[28px] bg-bg">
+        className="relative h-[630px] shrink-0 touch-none overflow-hidden rounded-[28px] bg-board">
         <CircleButton className="absolute top-[18px] left-[18px] z-10 !bg-cloud" onClick={() => { keep(); nav(-1) }} />
         <div className="absolute top-[18px] right-[18px] z-10 flex items-center gap-2">
           <button onClick={toggleFav} aria-label={draft.favoriteId ? 'Remove from favorites' : 'Save to favorites'} aria-pressed={!!draft.favoriteId}
@@ -422,12 +424,12 @@ export function Canvas() {
             </div>
           )
         })}
-        {!items.length && <p className="absolute inset-x-0 top-1/2 text-center text-[14px] text-text/55">Tap “Add clothes” to start</p>}
-        <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[12px] text-text/45">{sel ? 'Drag the dot to resize' : 'Drag to arrange · tap a piece to edit it'}</p>
+        {!items.length && <p className="absolute inset-x-0 top-1/2 text-center text-[14px] text-ink/55">Tap “Add clothes” to start</p>}
+        <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-[12px] text-ink/45">{sel ? 'Drag the dot to resize' : 'Drag to arrange · tap a piece to edit it'}</p>
       </div>
       <div className="px-4 pt-3">
         {cur ? (
-          <div className="pop-in flex rounded-md bg-primary-2">
+          <div className="pop-in flex rounded-md bg-ink-2">
             {tool('Smaller', <span className="text-[20px] leading-6">−</span>, () => resize(1 / 1.15))}
             {tool('Bigger', <span className="text-[20px] leading-6">+</span>, () => resize(1.15))}
             {tool('Flip', <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 3v18M9 7 3 17h6zM15 7l6 10h-6z" /></svg>, flip)}
@@ -436,7 +438,7 @@ export function Canvas() {
             {tool('Done', <Icon name="check" size={24} />, () => setSel(null))}
           </div>
         ) : (
-          <button onClick={() => { keep(); nav('/planner/add-clothes') }} className="pop-in press flex w-full flex-col items-center gap-1.5 rounded-md bg-primary-2 py-3 text-[12px] font-medium text-cloud"><Icon name="addTop" />Add clothes</button>
+          <button onClick={() => { keep(); nav('/planner/add-clothes') }} className="pop-in press flex w-full flex-col items-center gap-1.5 rounded-md bg-ink-2 py-3 text-[12px] font-medium text-on-ink"><Icon name="addTop" />Add clothes</button>
         )}
       </div>
     </Screen>
@@ -493,7 +495,7 @@ export function OutfitDetails() {
   return (
     <Screen>
       <div className="flex items-center"><div className="w-20"><CircleButton /></div><h1 className="display flex-1 text-center text-[24px]">{draft.editingId ? 'Edit outfit' : 'New outfit'}</h1><div className="w-20" /></div>
-      <div className="flex justify-center pt-3.5"><div className="relative h-[280px] w-[210px] overflow-hidden rounded-[18px] bg-surface"><Collage itemIds={draft.itemIds} layout={draft.layout} width={210} height={268} top={12} /></div></div>
+      <div className="flex justify-center pt-3.5"><div className="relative h-[280px] w-[210px] overflow-hidden rounded-[18px] bg-tile"><Collage itemIds={draft.itemIds} layout={draft.layout} width={210} height={268} top={12} /></div></div>
       <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note…" className="mt-3.5 bg-transparent text-[16px] outline-none placeholder:text-text/45" />
       <div className="mt-2">
         <label className="flex items-center gap-3.5 border-b border-border py-3.5"><Icon name="calendar" size={24} /><span className="flex-1 text-[16px] font-medium">Date</span>
@@ -574,7 +576,7 @@ export function PlanWeek() {
               return (
                 <Card key={r.date} className="flex items-center gap-3 p-3">
                   <div className="w-[70px]"><p className="text-[13px] font-semibold">{dayShort(r.date).toUpperCase()} {parse(r.date).getDate()}</p><p className="text-[12px] text-text-muted">{w ? `${deg(w.high, state.profile.unit)}${isRainy(w) ? ' · rain' : ''}` : ''}{r.p ? ' · saved' : ''}</p></div>
-                  <div className="flex flex-1 gap-1.5 overflow-hidden">{r.ids.slice(0, 4).map((id) => { const it = state.items.find((i) => i.id === id); return it ? <span key={id} className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-bg"><ItemImage item={it} size={32} /></span> : null })}</div>
+                  <div className="flex flex-1 gap-1.5 overflow-hidden">{r.ids.slice(0, 4).map((id) => { const it = state.items.find((i) => i.id === id); return it ? <span key={id} className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-tile"><ItemImage item={it} size={32} /></span> : null })}</div>
                   <button onClick={() => { setDraft({ date: r.date, itemIds: r.ids, editingId: r.p?.id, occasion: occasionLabel(state, r.date) }); nav(`/planner/add?date=${r.date}`) }} className="text-[13px] font-medium text-text/70">Edit</button>
                 </Card>
               )

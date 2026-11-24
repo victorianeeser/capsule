@@ -9,6 +9,7 @@
   --color-surface: #F6F4F1;      /* flat cards, tiles, pills */
   --color-cloud: #EEEBE7;        /* chips, thumbnails, subtle fills */
   --color-soft: #E4DFD8;         /* banners, note boxes */
+  --color-tile: #EAE5DF;         /* backdrop behind clothing photos — dark enough to show white pieces */
   --color-border: #D6D0C8;
   --color-text: #3E372E;         /* Espresso */
   --color-text-muted: #8B8379;
@@ -16,9 +17,18 @@
   --color-primary-2: #524A3F;    /* raised controls on dark */
   --color-accent: #A5A099;       /* Stone */
   --color-weather: #D9A441;
+  /* Always-dark surfaces (the outfit canvas frame) — the same in light and dark mode. */
+  --color-board: #FFFFFF;        /* the outfit canvas */
+  --color-ink: #3E372E;
+  --color-ink-2: #524A3F;
+  --color-on-ink: #EEEBE7;
+  /* Desktop demo: the stage around the phone. */
+  --color-stage: #E8E4DE;
+  --color-bezel: #26221D;
 
   --font-display: "SFT Schrifted Serif TRIAL D", "SFT Schrifted Serif", "Instrument Serif", Georgia, serif;
   --font-body: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --tracking-body: -0.04em;      /* DM Mono is wide — pull letters a little closer */
   /* DM Mono comes in 300/400/500 only — map "semibold" and "bold" to its heaviest real weight
      so the browser never fakes a bolder one. */
   --font-weight-semibold: 500;
@@ -31,11 +41,36 @@
   --radius-xl: 22px;
 }
 
+/* ------------------------------------------------------------------
+   Dark mode (Settings → Appearance). Same token names, warm dark values,
+   so every screen follows. Set on <html data-theme="dark">.
+   ------------------------------------------------------------------ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #1C1A18;
+  --color-surface: #262320;
+  --color-cloud: #312D29;
+  --color-soft: #3A3530;
+  --color-tile: #D2CBC2;          /* stays light so dark pieces still show */
+  --color-border: #3F3A34;
+  --color-text: #EEEBE7;
+  --color-text-muted: #A69E94;
+  --color-primary: #EEEBE7;       /* light buttons with dark text (text-cloud) */
+  --color-primary-2: #D6D0C8;
+  --color-accent: #7C766F;
+  --color-board: #D2CBC2;
+  --color-ink: #2A2724;
+  --color-ink-2: #3A3530;
+  --color-stage: #121110;
+  --color-bezel: #000000;
+}
+
 @layer base {
   html, body, #root { height: 100%; }
   body {
     margin: 0;
     font-family: var(--font-body);
+    letter-spacing: var(--tracking-body);
     color: var(--color-text);
     background: var(--color-bg);
     -webkit-font-smoothing: antialiased;
@@ -58,10 +93,10 @@
 .demo-only { display: none; }
 
 @media (min-width: 600px) {
-  body { background: #E8E4DE; }
+  body { background: var(--color-stage); }
   .stage { align-items: center; justify-content: center; height: 100%; padding: 0; overflow: hidden; }
   /* --phone-zoom is set in App.tsx so the whole phone always fits the window */
-  .phone { width: 390px; height: 844px; flex: none; border-radius: 52px; outline: 10px solid #26221D; zoom: var(--phone-zoom, 1); }
+  .phone { width: 390px; height: 844px; flex: none; border-radius: 52px; outline: 10px solid var(--color-bezel); zoom: var(--phone-zoom, 1); }
   .demo-only { display: flex; }
 }
 @media (max-width: 599px) {

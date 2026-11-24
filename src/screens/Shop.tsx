@@ -82,7 +82,7 @@ export function SearchResult() {
               <div className="grid grid-cols-3 gap-3">
                 {found.slice(0, 9).map((it) => (
                   <Link to={`/closet/item/${it.id}`} key={it.id} className="flex flex-col gap-1.5">
-                    <span className="flex aspect-square items-center justify-center rounded-md bg-surface"><ItemImage item={it} size={84} /></span>
+                    <span className="flex aspect-square items-center justify-center rounded-md bg-tile"><ItemImage item={it} size={84} /></span>
                     <span className="text-[12px] font-medium leading-tight">{it.name}</span>
                     <span className="text-[11px] text-text-muted">worn {stats.get(it.id)?.times ?? 0}×</span>
                   </Link>
@@ -135,7 +135,7 @@ export function WouldThisGo() {
                 <Eyebrow className="text-[10px]">In store</Eyebrow>
               </Card>
               <div className="no-scrollbar flex max-h-[236px] flex-1 flex-col gap-2 overflow-y-auto">
-                {partners.length ? partners.slice(0, 6).map((p) => <span key={p.id} className="flex h-[72px] shrink-0 items-center justify-center gap-2 rounded-md bg-surface px-2"><ItemImage item={p} size={56} /><span className="text-[10px] text-text/60">{p.name}</span></span>)
+                {partners.length ? partners.slice(0, 6).map((p) => <span key={p.id} className="flex h-[72px] shrink-0 items-center justify-center gap-2 rounded-md bg-tile px-2"><ItemImage item={p} size={56} /><span className="text-[10px] text-text/60">{p.name}</span></span>)
                   : <p className="rounded-md bg-surface p-3 text-[12px] text-text/65">Nothing to pair it with yet — add more {GOES_WITH[cat].map((c) => CATEGORY_LABEL[c].toLowerCase()).join(' or ')}.</p>}
               </div>
             </div>

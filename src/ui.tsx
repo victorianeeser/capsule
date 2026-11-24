@@ -57,9 +57,9 @@ export function Garment({ kind, size = 64, className = '', style }: { kind: Garm
 /* ---------------- Shell ---------------- */
 export function StatusBar({ dark = false }: { dark?: boolean }) {
   return (
-    <div className={`demo-only h-[47px] shrink-0 items-center justify-between px-7 text-[16px] font-semibold ${dark ? 'text-cloud' : 'text-text'}`}>
+    <div className={`demo-only h-[47px] shrink-0 items-center justify-between px-7 text-[16px] font-semibold ${dark ? 'text-on-ink' : 'text-text'}`}>
       <span>9:41</span>
-      <span className={`inline-block h-3 w-[26px] rounded-[3px] border ${dark ? 'border-cloud' : 'border-text'}`} />
+      <span className={`inline-block h-3 w-[26px] rounded-[3px] border ${dark ? 'border-on-ink' : 'border-text'}`} />
     </div>
   )
 }
@@ -91,7 +91,7 @@ export function TabBar() {
 export function HomeIndicator({ dark = false }: { dark?: boolean }) {
   return (
     <div className="demo-only justify-center pt-2 pb-1">
-      <span className={`h-[5px] w-[134px] rounded-full ${dark ? 'bg-cloud' : 'bg-text'}`} />
+      <span className={`h-[5px] w-[134px] rounded-full ${dark ? 'bg-on-ink' : 'bg-text'}`} />
     </div>
   )
 }
@@ -100,7 +100,7 @@ export function HomeIndicator({ dark = false }: { dark?: boolean }) {
 export function Screen({ children, tabs = false, pad = true, className = '', dark = false }: { children: ReactNode; tabs?: boolean; pad?: boolean; className?: string; dark?: boolean }) {
   const enter = useEnterClass()
   return (
-    <div className={`flex h-full flex-col ${dark ? 'bg-primary' : 'bg-bg'}`}>
+    <div className={`flex h-full flex-col ${dark ? 'bg-ink' : 'bg-bg'}`}>
       <StatusBar dark={dark} />
       <main className={`${enter} no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto ${pad ? 'px-5 pt-1 pb-5' : ''} ${className}`}>{children}</main>
       {tabs ? <TabBar /> : <HomeIndicator dark={dark} />}
@@ -112,7 +112,7 @@ export function Screen({ children, tabs = false, pad = true, className = '', dar
 export const Eyebrow = ({ children, className = '' }: { children: ReactNode; className?: string }) => <p className={`eyebrow ${className}`}>{children}</p>
 export const Title = ({ children, className = '' }: { children: ReactNode; className?: string }) => <h1 className={`display text-[32px] ${className}`}>{children}</h1>
 /** Section / card headings — Inter. The serif is reserved for page titles (<Title>). */
-export const Heading = ({ children, size = 20, className = '' }: { children: ReactNode; size?: number; className?: string }) => <h2 className={`font-semibold tracking-[-0.01em] ${className}`} style={{ fontSize: size }}>{children}</h2>
+export const Heading = ({ children, size = 20, className = '' }: { children: ReactNode; size?: number; className?: string }) => <h2 className={`font-semibold ${className}`} style={{ fontSize: size }}>{children}</h2>
 export const Body = ({ children, className = '' }: { children: ReactNode; className?: string }) => <p className={`text-[15px] leading-[1.4] text-text/75 ${className}`}>{children}</p>
 
 export function Header({ eyebrow, title, body }: { eyebrow?: string; title: string; body?: string }) {

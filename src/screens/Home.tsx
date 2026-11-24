@@ -22,8 +22,8 @@ function HomeHeader({ title, date }: { title: string; date: string }) {
           <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface py-[7px] pr-3 pl-2.5" aria-label={`${deg(forecast.current, unit)}, high ${deg(t.high, unit)}, low ${deg(t.low, unit)}`}>
             <WeatherIcon kind={h >= 18 || h < 6 ? 'moon' : 'sun'} />
             <div className="flex flex-col items-start leading-none">
-              <span className="text-[17px] font-semibold tracking-[-0.02em]">{deg(forecast.current, unit)}</span>
-              <span className="pt-[3px] text-[10px] tracking-[-0.04em] text-text-muted">H:{deg(t.high, unit)} L:{deg(t.low, unit)}</span>
+              <span className="text-[17px] font-semibold">{deg(forecast.current, unit)}</span>
+              <span className="pt-[3px] text-[10px] text-text-muted">H:{deg(t.high, unit)} L:{deg(t.low, unit)}</span>
             </div>
           </div>
         )}
@@ -93,7 +93,7 @@ function OutfitCard({ when, weather, occasion, date, itemIds, reason, missing, a
       </div>
       {quiet}
       {!quiet && items.length > 0 && (
-        <div className="no-scrollbar flex justify-center gap-1.5 overflow-x-auto rounded-md bg-cloud py-3">
+        <div className="no-scrollbar flex justify-center gap-1.5 overflow-x-auto rounded-md bg-tile py-3">
           {items.map((it) => <ItemImage key={it.id} item={it} size={items.length > 4 ? 56 : 70} />)}
         </div>
       )}
@@ -252,7 +252,7 @@ export function Favorites() {
             <div className="grid grid-cols-2 gap-3">
               {favs.map((o) => (
                 <div key={o.id} className="flex flex-col overflow-hidden rounded-[18px] bg-surface">
-                  <div className="relative h-[190px]">
+                  <div className="relative h-[190px] bg-tile">
                     <Collage itemIds={o.itemIds} layout={o.layout} width={171} height={186} top={10} padX={8} />
                     <button onClick={() => removeFavorite(o.id)} aria-label="Remove from favorites" className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>

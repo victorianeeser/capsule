@@ -82,7 +82,7 @@ export function Thumbs({ itemIds, size = 30, max = 4, bg = true }: { itemIds: st
   const { state } = useStore()
   const items = itemIds.map((id) => state.items.find((i) => i.id === id)).filter(Boolean).slice(0, max) as Item[]
   return (
-    <div className={`flex items-center ${bg ? 'rounded-[10px] bg-cloud p-1' : ''}`}>
+    <div className={`flex items-center ${bg ? 'rounded-[10px] bg-tile p-1' : ''}`}>
       {items.length ? items.map((it) => <ItemImage key={it.id} item={it} size={size} />) : <span className="text-[12px] text-text/45" style={{ height: size, lineHeight: `${size}px` }}>—</span>}
     </div>
   )

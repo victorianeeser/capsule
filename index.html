@@ -3,7 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#3E372E" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <script>
+      // Dark mode before the first paint (the setting itself lives in Settings → Appearance).
+      try { var t = localStorage.getItem('capsule:theme'); if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.dataset.theme = 'dark' } catch (e) {}
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Capsule</title>
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />

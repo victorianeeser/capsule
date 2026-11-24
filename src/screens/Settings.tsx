@@ -33,6 +33,14 @@ export function Settings() {
         </div>
 
         <div className="pt-3">
+          <Eyebrow className="text-[11px]">Appearance</Eyebrow>
+          <div className="flex flex-col gap-2.5 border-b border-border py-3.5">
+            <span className="text-[16px] font-medium">Theme</span>
+            <div className="flex gap-2">{([['light', 'Light'], ['dark', 'Dark'], ['system', 'Match my phone']] as const).map(([v, l]) => <Chip key={v} small label={l} selected={(p.theme ?? 'light') === v} onClick={() => setProfile({ theme: v })} />)}</div>
+          </div>
+        </div>
+
+        <div className="pt-3">
           <Eyebrow className="text-[11px]">Outfit rules</Eyebrow>
           <div className="flex items-center justify-between border-b border-border py-3.5">
             <div><p className="text-[16px] font-medium">Don’t repeat a piece within</p><p className="text-[13px] text-text-muted">Work weeks never repeat Mon–Fri</p></div>

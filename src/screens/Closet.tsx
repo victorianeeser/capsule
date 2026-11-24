@@ -108,7 +108,7 @@ export function Closet() {
           <div className="grid grid-cols-3 gap-x-3 gap-y-3.5">
             {items.map((it) => (
               <Link key={it.id} to={`/closet/item/${it.id}`} className="flex flex-col gap-1.5">
-                <span className="relative flex aspect-square items-center justify-center rounded-md bg-surface">
+                <span className="relative flex aspect-square items-center justify-center rounded-md bg-tile">
                   <ItemImage item={it} size={86} />
                   {(it.quantity ?? 1) > 1 && <span className="absolute top-1.5 right-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-cloud">×{it.quantity}</span>}
                 </span>
@@ -184,7 +184,7 @@ export function TagItem() {
       <div className="flex flex-1 flex-col gap-3">
         <BackBar right={pos ?? undefined} />
         <Card className="flex flex-col items-center gap-1 p-3">
-          <span className="flex h-[150px] w-full items-center justify-center rounded-md bg-bg"><ItemImage item={it} size={140} /></span>
+          <span className="flex h-[150px] w-full items-center justify-center rounded-md bg-tile"><ItemImage item={it} size={140} /></span>
           <span className="text-[11px] font-medium text-text/60">{it.processing ? 'Removing background…' : it.imageId ? 'Background removed ✓' : 'Demo piece'}</span>
         </Card>
         <input value={it.name === 'New piece' ? '' : it.name} onChange={(e) => set({ name: e.target.value })} placeholder="Name (optional) — e.g. Cream knit sweater" className="rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" />
@@ -254,7 +254,7 @@ export function ItemDetail() {
     <Screen tabs>
       <div className="flex flex-col gap-3.5">
         <BackBar right="Edit" onRight={() => nav(`/closet/tag/${it.id}`)} />
-        <span className="flex h-[250px] items-center justify-center rounded-lg bg-surface"><ItemImage item={it} size={220} /></span>
+        <span className="flex h-[250px] items-center justify-center rounded-lg bg-tile"><ItemImage item={it} size={220} /></span>
         <div className="flex flex-col gap-0.5">
           <Heading>{it.name}</Heading>
           {it.brand && <p className="text-[15px] text-text-muted">{it.brand}</p>}
@@ -310,7 +310,7 @@ export function Audit() {
           <>
             <div className="flex flex-col gap-2"><Eyebrow className="text-[11px]">Closet audit · {CATEGORY_LABEL[cat]} · {inCat.length - left.length + 1} of {inCat.length}</Eyebrow><ProgressBar value={(inCat.length - left.length) / inCat.length} /></div>
             <Card className="flex flex-col items-center gap-2">
-              <span className="flex h-[240px] w-full items-center justify-center rounded-md bg-bg"><ItemImage item={it} size={210} /></span>
+              <span className="flex h-[240px] w-full items-center justify-center rounded-md bg-tile"><ItemImage item={it} size={210} /></span>
               <Heading>{it.name}</Heading>
               <p className="text-center text-[13px] text-text-muted">{st?.last ? `Last worn ${relative(st.last)} · worn ${st.times}×` : 'Not worn yet in Capsule'}</p>
             </Card>

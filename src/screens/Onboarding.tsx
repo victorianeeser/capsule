@@ -137,7 +137,7 @@ export function FirstPieces() {
         <p className="text-[13px] font-medium text-text/60">{Math.min(added.length, 15)} of 15 added</p>
         <div className="grid grid-cols-5 gap-2">
           {Array.from({ length: 10 }).map((_, i) => (
-            <span key={i} className={`flex aspect-square items-center justify-center rounded-[10px] ${added[i] ? 'bg-surface' : 'border border-dashed border-accent'}`}>
+            <span key={i} className={`flex aspect-square items-center justify-center rounded-[10px] ${added[i] ? 'bg-tile' : 'border border-dashed border-accent'}`}>
               {added[i] && <ItemImage item={added[i]} size={52} />}
             </span>
           ))}
