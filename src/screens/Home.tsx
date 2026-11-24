@@ -17,13 +17,13 @@ function HomeHeader({ title, date }: { title: string; date: string }) {
     <div className="flex flex-col gap-1">
       <Eyebrow className="truncate">{fmtShort(date)} · {state.profile.city}</Eyebrow>
       <div className="flex items-center justify-between gap-3">
-        <Title className="min-w-0 truncate !text-[clamp(26px,8.2vw,32px)]">{title}</Title>
+        <Title className="min-w-0 truncate !text-[clamp(25px,7.6vw,32px)]">{title}</Title>
         {forecast && t && (
-          <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface py-[7px] pr-4 pl-3" aria-label={`${deg(forecast.current, unit)}, high ${deg(t.high, unit)}, low ${deg(t.low, unit)}`}>
+          <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface py-[7px] pr-3 pl-2.5" aria-label={`${deg(forecast.current, unit)}, high ${deg(t.high, unit)}, low ${deg(t.low, unit)}`}>
             <WeatherIcon kind={h >= 18 || h < 6 ? 'moon' : 'sun'} />
             <div className="flex flex-col items-start leading-none">
               <span className="text-[17px] font-semibold tracking-[-0.02em]">{deg(forecast.current, unit)}</span>
-              <span className="pt-[3px] text-[10px] text-text-muted">H:{deg(t.high, unit)} L:{deg(t.low, unit)}</span>
+              <span className="pt-[3px] text-[10px] tracking-[-0.04em] text-text-muted">H:{deg(t.high, unit)} L:{deg(t.low, unit)}</span>
             </div>
           </div>
         )}

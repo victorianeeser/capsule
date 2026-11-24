@@ -18,7 +18,11 @@
   --color-weather: #D9A441;
 
   --font-display: "SFT Schrifted Serif TRIAL D", "SFT Schrifted Serif", "Instrument Serif", Georgia, serif;
-  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-body: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* DM Mono comes in 300/400/500 only — map "semibold" and "bold" to its heaviest real weight
+     so the browser never fakes a bolder one. */
+  --font-weight-semibold: 500;
+  --font-weight-bold: 500;
   --font-script: "Imperial Script", cursive;
 
   --radius-sm: 8px;
