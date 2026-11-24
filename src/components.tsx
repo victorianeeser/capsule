@@ -77,6 +77,16 @@ export function Collage({ itemIds, layout, scale = 1, width = 300, height = 290,
   )
 }
 
+/** An outfit on the light tile — the same size everywhere it appears (Home, Planner): 318 × 270. */
+export const OUTFIT_TILE = { w: 318, h: 270 }
+export function OutfitTile({ itemIds, layout }: { itemIds: string[]; layout?: Placed[] }) {
+  return (
+    <div className="relative mx-auto shrink-0 rounded-[16px] bg-tile" style={{ width: OUTFIT_TILE.w, height: OUTFIT_TILE.h }}>
+      <Collage itemIds={itemIds} layout={layout} width={OUTFIT_TILE.w} height={OUTFIT_TILE.h - 12} top={12} padX={16} />
+    </div>
+  )
+}
+
 /** Row of small thumbnails (Home peek cards, Plan the week, Month). */
 export function Thumbs({ itemIds, size = 30, max = 4, bg = true }: { itemIds: string[]; size?: number; max?: number; bg?: boolean }) {
   const { state } = useStore()

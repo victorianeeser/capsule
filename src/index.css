@@ -51,18 +51,16 @@
   --color-surface: #262320;
   --color-cloud: #312D29;
   --color-soft: #3A3530;
-  --color-tile: #D2CBC2;          /* stays light so dark pieces still show */
+  --color-tile: #B5ACA1;          /* mid-light: dark pieces still show, without glaring on dark */
   --color-border: #3F3A34;
   --color-text: #EEEBE7;
   --color-text-muted: #A69E94;
   --color-primary: #EEEBE7;       /* light buttons with dark text (text-cloud) */
   --color-primary-2: #D6D0C8;
   --color-accent: #7C766F;
-  --color-board: #D2CBC2;
+  --color-board: #B5ACA1;
   --color-ink: #2A2724;
   --color-ink-2: #3A3530;
-  --color-stage: #121110;
-  --color-bezel: #000000;
 }
 
 @layer base {

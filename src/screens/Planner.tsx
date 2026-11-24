@@ -6,7 +6,7 @@ import { ACTIVITIES, CATEGORIES, CATEGORY_LABEL, type Activity, type Category, t
 import { addDays, dayShort, fmtLong, fmtShort, iso, monday, monthTitle, parse, weekStart } from '../lib/dates'
 import { autoSuggests, dayInfo, occasionLabel } from '../lib/suggest'
 import { deg, isRainy, condition } from '../lib/weather'
-import { autoLayout, Collage, Empty, ItemImage, Thumbs } from '../components'
+import { autoLayout, Collage, Empty, ItemImage, OutfitTile, Thumbs } from '../components'
 
 /* ---------------- shared planner chrome ---------------- */
 function PlannerNav() {
@@ -93,12 +93,12 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
   if (!o) return null
   const edit = () => { setDraft({ date: p.date, itemIds: o.itemIds, layout: o.layout, editingId: p.id, occasion: p.occasion, note: p.note }); nav('/planner/canvas') }
   return (
-    <div onClick={edit} className="relative h-[400px] w-[350px] shrink-0 cursor-pointer overflow-hidden rounded-[22px] bg-surface">
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
+    <div onClick={edit} className="relative flex w-[350px] shrink-0 cursor-pointer flex-col gap-3 overflow-hidden rounded-[22px] bg-surface p-4">
+      <div className="flex h-9 items-center gap-2 pr-11">
         <Link to={`/planner/off-day?date=${p.date}`} onClick={(e) => e.stopPropagation()} className="rounded-full bg-primary px-3 py-[7px] text-[13px] font-medium text-cloud">{p.occasion}</Link>
         {p.suggested && <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggested</span>}
       </div>
-      <button onClick={(e) => { e.stopPropagation(); setMenu(!menu) }} className="absolute top-3.5 right-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-cloud" aria-label="More"><Icon name="more" size={20} /></button>
+      <button onClick={(e) => { e.stopPropagation(); setMenu(!menu) }} className="absolute top-4 right-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-cloud" aria-label="More"><Icon name="more" size={20} /></button>
       {menu && (
         <div onClick={(e) => e.stopPropagation()} className="unfold absolute top-14 right-3.5 z-30 flex w-40 flex-col rounded-md border border-border bg-bg py-1 text-[14px]">
           <button onClick={edit} className="px-4 py-2.5 text-left">Edit outfit</button>
@@ -117,15 +117,15 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
           </div>
         </div>
       )}
-      <div className="absolute inset-x-3 top-[52px] bottom-[56px] rounded-[16px] bg-tile" />
-      <Collage itemIds={o.itemIds} layout={o.layout} width={350} top={58} height={330} />
-      <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+      <OutfitTile itemIds={o.itemIds} layout={o.layout} />
+      <div className="flex flex-col gap-1 px-1" onClick={(e) => e.stopPropagation()}>
         {p.reason && <p className="text-[12px] text-text/70">{p.reason}</p>}
         <input value={note} onChange={(e) => setNoteText(e.target.value)} onBlur={() => setNote(p.id, note)} placeholder="Add a note…" className="bg-transparent text-[15px] outline-none placeholder:text-text/55" />
       </div>
     </div>
   )
 }
+
 
 function SuggestionCard({ date }: { date: string }) {
   const { state, suggestFor, plan, addGap, toggleSkip } = useStore()
@@ -148,14 +148,13 @@ function SuggestionCard({ date }: { date: string }) {
   }
   if (!hasCloset) return <div className="w-[350px]"><Empty title="Nothing to plan with yet" body="Add a few pieces to your closet and Capsule will suggest outfits." action={<Button to="/closet/add">Add pieces</Button>} /></div>
   return (
-    <div className="relative h-[400px] w-[350px] shrink-0 overflow-hidden rounded-[22px] border-[1.5px] border-dashed border-accent">
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
-        <span className="rounded-full bg-primary/80 px-3 py-[7px] text-[13px] font-medium text-cloud">{s.occasion}</span>
+    <div className="flex w-[350px] shrink-0 flex-col gap-3 overflow-hidden rounded-[22px] border-[1.5px] border-dashed border-accent p-4">
+      <div className="flex h-9 items-center gap-2">
+        <span className="rounded-full bg-primary px-3 py-[7px] text-[13px] font-medium text-cloud">{s.occasion}</span>
         <span className="flex items-center gap-1.5 rounded-full bg-soft px-2.5 py-[6px] text-[12px] font-medium"><Icon name="spark" size={14} />Suggestion</span>
       </div>
-      <div className="absolute inset-x-3 top-[52px] bottom-[96px] rounded-[16px] bg-tile" />
-      <div className="opacity-90"><Collage itemIds={s.itemIds} width={350} top={58} height={275} /></div>
-      <div className="absolute inset-x-[18px] bottom-4 flex flex-col gap-2">
+      <OutfitTile itemIds={s.itemIds} />
+      <div className="flex flex-col gap-2">
         {s.reason && <p className="text-[12px] text-text/70">{s.reason}</p>}
         {s.missing.length > 0 && <p className="text-[12px] text-text/70">Missing {s.missing.join(', ')}. <button className="font-semibold underline" onClick={() => s.missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' }))}>Add to Gaps</button></p>}
         {s.itemIds.length > 0 && <Button onClick={() => plan({ date, itemIds: s.itemIds, occasion: s.occasion, reason: s.reason, suggested: true })}>Use this outfit</Button>}

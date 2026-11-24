@@ -4,9 +4,9 @@ import { BackBar, Button, Card, Eyebrow, Header, Heading, Icon, Screen, Title } 
 import { useStore } from '../lib/store'
 import { dayName, fmtShort, greeting, monday, addDays } from '../lib/dates'
 import { condition, deg, isRainy } from '../lib/weather'
-import { Collage, ItemImage, Empty } from '../components'
+import { Collage, Empty, OutfitTile } from '../components'
 import { autoSuggests, occasionLabel } from '../lib/suggest'
-import type { Item } from '../lib/types'
+import type { Item, Placed } from '../lib/types'
 
 function HomeHeader({ title, date }: { title: string; date: string }) {
   const { state, forecast, weatherFor, today } = useStore()
@@ -79,11 +79,11 @@ function QuietDay({ skipped, onSuggest, onBuild, onUndo, when }: { skipped: bool
   )
 }
 
-function OutfitCard({ when, weather, occasion, date, itemIds, reason, missing, actions, quiet, skip }: { when: string; weather: string; occasion: string; date: string; itemIds: string[]; reason: string; missing: string[]; actions: ReactNode; quiet?: ReactNode; skip?: ReactNode }) {
+function OutfitCard({ when, weather, occasion, date, itemIds, layout, reason, missing, actions, quiet, skip }: { when: string; weather: string; occasion: string; date: string; itemIds: string[]; layout?: Placed[]; reason: string; missing: string[]; actions: ReactNode; quiet?: ReactNode; skip?: ReactNode }) {
   const { state, addGap } = useStore()
   const items = itemIds.map((id) => state.items.find((i) => i.id === id)).filter(Boolean) as Item[]
   return (
-    <Card className="flex flex-col gap-3 p-[18px]">
+    <Card className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <Eyebrow className="text-[11px]">{when}</Eyebrow>
@@ -92,11 +92,7 @@ function OutfitCard({ when, weather, occasion, date, itemIds, reason, missing, a
         <Link to={`/planner/off-day?date=${date}`} className="shrink-0 rounded-full bg-primary px-[15px] py-[9px] text-[14px] font-medium text-cloud">{occasion}</Link>
       </div>
       {quiet}
-      {!quiet && items.length > 0 && (
-        <div className="no-scrollbar flex justify-center gap-1.5 overflow-x-auto rounded-md bg-tile py-3">
-          {items.map((it) => <ItemImage key={it.id} item={it} size={items.length > 4 ? 56 : 70} />)}
-        </div>
-      )}
+      {!quiet && items.length > 0 && <OutfitTile itemIds={itemIds} layout={layout} />}
       {reason && <p className="text-[13px] leading-[1.4] text-text/70">{reason}</p>}
       {missing.length > 0 && (
         <p className="text-[13px] leading-[1.4] text-text/70">
@@ -186,7 +182,7 @@ export function Home() {
           <OutfitCard
             when={`Today · ${dayName(today)}`}
             weather={forecast ? `${deg(forecast.current, unit)} now · ${w && isRainy(w) ? 'rain later' : condition(forecast.currentCode)}` : 'Weather unavailable offline'}
-            occasion={d.occasion} date={today} itemIds={d.itemIds}
+            occasion={d.occasion} date={today} itemIds={d.itemIds} layout={d.outfit?.layout}
             reason={worn ? '✓ Logged — every piece is marked as worn today.' : d.reason} missing={worn ? [] : d.missing}
             actions={<><ActionButton onClick={change}>Change it</ActionButton><ActionButton primary onClick={wore}>{worn ? '✓ Wore it' : 'Wore it'}</ActionButton></>}
             quiet={d.skipped || d.rest ? <QuietDay when="today" skipped={d.skipped} onSuggest={() => setAsk(true)} onBuild={build} onUndo={() => toggleSkip(today)} /> : undefined}
@@ -220,7 +216,7 @@ export function HomeEvening() {
           <OutfitCard
             when={`Tomorrow · ${dayName(tomorrow)}`}
             weather={wt ? `${deg(wt.high, unit)} / ${deg(wt.low, unit)}${isRainy(wt) ? ' · rain' : ` · ${condition(wt.code)}`}` : 'Weather unavailable offline'}
-            occasion={t.occasion} date={tomorrow} itemIds={t.itemIds}
+            occasion={t.occasion} date={tomorrow} itemIds={t.itemIds} layout={t.outfit?.layout}
             reason={t.first ? `✓ Planned. ${t.reason}` : t.reason ? `Suggested: ${t.reason}` : ''} missing={t.missing}
             actions={<><ActionButton onClick={change}>Change it</ActionButton><ActionButton primary onClick={looksGood}>{t.first ? 'View in Planner' : 'Looks good'}</ActionButton></>}
             quiet={t.skipped || t.rest ? <QuietDay when="tomorrow" skipped={t.skipped} onSuggest={() => setAsk(true)} onBuild={build} onUndo={() => toggleSkip(tomorrow)} /> : undefined}
