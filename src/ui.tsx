@@ -97,12 +97,16 @@ export function HomeIndicator({ dark = false }: { dark?: boolean }) {
 }
 
 /** One app screen: status bar, scrolling content, and either the tab bar or a home indicator. */
-export function Screen({ children, tabs = false, pad = true, className = '', dark = false }: { children: ReactNode; tabs?: boolean; pad?: boolean; className?: string; dark?: boolean }) {
+/** One app screen. `fab` = a floating action button pinned bottom-right above the tab bar (thumb reach). */
+export function Screen({ children, tabs = false, pad = true, className = '', dark = false, fab }: { children: ReactNode; tabs?: boolean; pad?: boolean; className?: string; dark?: boolean; fab?: ReactNode }) {
   const enter = useEnterClass()
   return (
     <div className={`flex h-full flex-col ${dark ? 'bg-ink' : 'bg-bg'}`}>
       <StatusBar dark={dark} />
-      <main className={`${enter} no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto ${pad ? 'px-5 pt-1 pb-5' : ''} ${className}`}>{children}</main>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <main className={`${enter} no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto ${pad ? `px-5 pt-1 ${fab ? 'pb-24' : 'pb-5'}` : ''} ${className}`}>{children}</main>
+        {fab && <div className="pop-in absolute right-5 bottom-4 z-20">{fab}</div>}
+      </div>
       {tabs ? <TabBar /> : <HomeIndicator dark={dark} />}
     </div>
   )

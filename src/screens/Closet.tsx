@@ -56,11 +56,10 @@ export function Closet() {
     </div>
   )
   return (
-    <Screen tabs>
+    <Screen tabs fab={<Link to="/closet/add" aria-label="Add items" className="press flex h-14 w-14 items-center justify-center rounded-full bg-primary text-cloud shadow-overlay"><Icon name="plus" size={26} /></Link>}>
       <div className="flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
           <div><Title>Closet</Title><p className="text-[13px] text-text-muted">{countPieces(active)} {countPieces(active) === 1 ? 'piece' : 'pieces'}</p></div>
-          <Link to="/closet/add" aria-label="Add items" className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-cloud"><Icon name="plus" /></Link>
         </div>
         <QueueBanner />
         {untagged > 0 && (
