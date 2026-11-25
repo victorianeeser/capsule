@@ -42,6 +42,7 @@ This is a real, daily-use app, not just a class prototype: data must persist rel
 - Avoid pieces worn in the last 3–5 days (a piece with quantity N can be used N times in that window). On workdays, no repeating a piece within the same Mon–Fri week.
 - Match dress level to activity (going out → going-out pieces, gym → athletic).
 - Structure: (top + bottom) or dress, + shoes, + outerwear if needed, + optional accessory.
+- **Shoes are always shown as a pair** in suggested/auto-arranged outfits: the shoe plus a flipped copy, stacked under the top in the left column (`autoLayout` in `src/components.tsx`, 2026-11-24). The copy is only in the layout — the outfit still lists the shoe once, so wear counts stay right.
 - If an outfit can't be built, say what's missing and offer to add it to Gaps.
 
 ## Data model (starting point)

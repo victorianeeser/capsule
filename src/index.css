@@ -28,7 +28,7 @@
 
   --font-display: "SFT Schrifted Serif TRIAL D", "SFT Schrifted Serif", "Instrument Serif", Georgia, serif;
   --font-body: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --tracking-body: -0.04em;      /* DM Mono is wide — pull letters a little closer */
+  --tracking-body: -0.01em;      /* DM Mono is wide — letters pulled in just slightly */
   /* DM Mono comes in 300/400/500 only — map "semibold" and "bold" to its heaviest real weight
      so the browser never fakes a bolder one. */
   --font-weight-semibold: 500;

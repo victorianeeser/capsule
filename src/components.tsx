@@ -34,19 +34,37 @@ export function ItemImage({ item, size, className = '' }: { item: Item; size: nu
   return <Garment kind={item.demoKind ?? KIND_FOR[item.category]} size={size} className={className} />
 }
 
-/** Auto-arranged outfit collage (or a saved canvas layout) inside a fixed box. */
-const AUTO: Record<number, [number, number, number][]> = {
-  1: [[60, 40, 180]],
-  2: [[30, 40, 160], [160, 150, 120]],
-  3: [[20, 40, 140], [150, 90, 150], [40, 190, 100]],
-  4: [[14, 46, 140], [150, 48, 124], [140, 150, 140], [36, 196, 96]],
-  5: [[14, 46, 130], [150, 40, 116], [140, 150, 130], [30, 196, 92], [200, 10, 60]],
+/**
+ * Auto-arranged outfits (suggestions, and outfits nobody arranged on the Canvas).
+ * Clothes go in the main slots; shoes are always shown as a pair — the piece plus a flipped copy,
+ * stacked under the top in the left column (the arrangement people make by hand on the Canvas).
+ * Each entry is [x, y, size] in canvas units; Collage scales the whole thing to fit its box.
+ */
+type Slot = [number, number, number]
+const CLOTHES: Record<number, Slot[]> = {
+  0: [],
+  1: [[20, 20, 180]],                                                   // dress
+  2: [[20, 30, 150], [175, 90, 160]],                                   // top · bottom
+  3: [[10, 30, 140], [155, 20, 130], [160, 140, 140]],                  // outer · top · bottom
+  4: [[10, 30, 130], [150, 10, 110], [155, 115, 140], [270, 20, 60]],   // outer · sweater/top · bottom · accessory
 }
-const ORDER = ['outerwear', 'sweater', 'top', 'dress', 'lounge', 'bottom', 'shoes', 'accessory']
+/** Where the shoe pair sits for each number of clothing pieces (second shoe = flipped copy just below). */
+const SHOES: Record<number, Slot> = { 0: [60, 40, 140], 1: [205, 140, 100], 2: [40, 190, 100], 3: [25, 180, 95], 4: [25, 170, 95] }
+const ORDER = ['outerwear', 'sweater', 'top', 'dress', 'lounge', 'bottom', 'accessory']
 export function autoLayout(items: Item[]): Placed[] {
-  const sorted = [...items].sort((a, b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category))
-  const pos = AUTO[Math.min(sorted.length, 5)] ?? AUTO[5]
-  return sorted.slice(0, 6).map((it, i) => ({ itemId: it.id, x: pos[i % pos.length][0] + (i >= 5 ? 20 : 0), y: pos[i % pos.length][1], s: pos[i % pos.length][2] }))
+  const shoes = items.filter((i) => i.category === 'shoes')
+  const clothes = items.filter((i) => i.category !== 'shoes').sort((a, b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category)).slice(0, 5)
+  const slots = CLOTHES[Math.min(clothes.length, 4)]
+  const out: Placed[] = clothes.map((it, i) => {
+    const [x, y, s] = slots[i] ?? [200 + (i - 4) * 30, 10, 60] // a fifth piece (second accessory) tucks in top-right
+    return { itemId: it.id, key: `${it.id}-a`, x, y, s }
+  })
+  shoes.slice(0, 1).forEach((it) => {
+    const [x, y, s] = SHOES[Math.min(clothes.length, 4)]
+    const gap = Math.round(s * 0.6) // shoes are wide and short, so the pair overlaps their square boxes
+    out.push({ itemId: it.id, key: `${it.id}-a`, x, y, s }, { itemId: it.id, key: `${it.id}-b`, x, y: y + gap, s, flip: true })
+  })
+  return out
 }
 /**
  * Outfit collage that fits any arrangement (auto or saved from the Canvas) into a box,
