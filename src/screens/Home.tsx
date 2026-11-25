@@ -5,7 +5,7 @@ import { useStore } from '../lib/store'
 import { toast } from '../lib/toast'
 import { dayName, daysBetween, fmtShort, greeting, monday, addDays, relative } from '../lib/dates'
 import { condition, deg, isRainy } from '../lib/weather'
-import { Collage, Empty, ItemImage, MissingPieces, OutfitTile } from '../components'
+import { Collage, Empty, ItemImage, MissingPieces, OutfitTile, useImage } from '../components'
 import { autoSuggests, occasionLabel, wearStats } from '../lib/suggest'
 import { countPieces, type Item, type Placed, type State } from '../lib/types'
 
@@ -228,6 +228,12 @@ export function HomeEvening() {
   )
 }
 
+/** Your own photo of an outfit, as a small round badge on its tile. */
+function PhotoBadge({ id }: { id: string }) {
+  const url = useImage(id)
+  return <span className="absolute top-2 left-2 h-9 w-9 overflow-hidden rounded-full border-2 border-bg bg-cloud shadow-overlay" title="Saved from your photo">{url && <img src={url} alt="Your outfit photo" className="h-full w-full object-cover" />}</span>
+}
+
 /** Your favorite outfits as a grid of tiles with "Plan it" — used on the Favorites page and in Closet → Outfits. */
 export function FavoritesGrid() {
   const { state, tomorrow, setDraft, removeFavorite } = useStore()
@@ -235,14 +241,23 @@ export function FavoritesGrid() {
   const favs = state.outfits.filter((o) => o.isFavorite && o.itemIds.length).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const wear = (o: (typeof favs)[number]) => { setDraft({ date: tomorrow, itemIds: o.itemIds, layout: o.layout, occasion: occasionLabel(state, tomorrow) }); nav(`/planner/details?date=${tomorrow}`) }
   const build = () => { setDraft({ date: tomorrow, itemIds: [], occasion: occasionLabel(state, tomorrow) }); nav(`/planner/add?date=${tomorrow}`) }
-  if (!favs.length) return <Empty icon="heart" title="No saved outfits yet" body="Build an outfit and tap the heart on the canvas — it lands here, ready to wear again." action={<Button onClick={build}>Build an outfit</Button>} />
+  const snap = (
+    <Link to="/closet/snap" className="press flex items-center gap-3 rounded-lg bg-surface p-4">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-cloud"><Icon name="camera" /></span>
+      <span className="min-w-0 flex-1"><Heading size={16}>Snap your outfit</Heading><span className="block text-[13px] text-text/65">Take a photo of what you’re wearing and match it to your closet.</span></span>
+      <Icon name="chev" size={20} />
+    </Link>
+  )
+  if (!favs.length) return <>{snap}<Empty icon="heart" title="No saved outfits yet" body="Snap one above, or build an outfit and tap the heart on the canvas." action={<Button onClick={build}>Build an outfit</Button>} /></>
   return (
     <>
+      {snap}
       <div className="grid grid-cols-2 gap-3">
         {favs.map((o) => (
           <div key={o.id} className="flex flex-col overflow-hidden rounded-[18px] bg-surface">
             <div className="relative h-[190px] bg-tile">
               <Collage itemIds={o.itemIds} layout={o.layout} width={171} height={186} top={10} padX={8} />
+              {o.photoId && <PhotoBadge id={o.photoId} />}
               <button onClick={() => { removeFavorite(o.id); toast('Removed from favorites') }} aria-label="Remove from favorites" className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
               </button>

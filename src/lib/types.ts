@@ -36,7 +36,7 @@ export interface Item {
 /** A piece placed on the Canvas. `key` lets the same piece appear twice (layering, a pair of shoes). */
 export interface Placed { itemId: string; key?: string; x: number; y: number; s: number; flip?: boolean }
 
-export interface Outfit { id: string; itemIds: string[]; layout?: Placed[]; isFavorite: boolean; createdAt: string }
+export interface Outfit { id: string; itemIds: string[]; layout?: Placed[]; isFavorite: boolean; createdAt: string; photoId?: string /* your own photo of the outfit (Snap your outfit) */ }
 
 export interface PlannedOutfit {
   id: string

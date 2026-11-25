@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { BackBar, Body, Button, Card, Chip, Eyebrow, FabButton, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
@@ -6,7 +6,8 @@ import { toast } from '../lib/toast'
 import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, NUMBER_SIZES_FOR, SIZES_FOR, WARMTH_LABEL, colorText, countPieces, type Category, type DressLevel, type Item, type Warmth } from '../lib/types'
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay, relative } from '../lib/dates'
-import { Empty, ItemImage, PhotoPicker, QueueBanner, Thumbs } from '../components'
+import { Empty, ItemImage, PhotoPicker, QueueBanner, Thumbs, usePhotoSwatches } from '../components'
+import { colorAt, colorDistance, itemHex } from '../lib/color'
 import { FavoritesGrid } from './Home'
 
 const CATS: (Category | 'all')[] = ['all', ...CATEGORIES]
@@ -375,6 +376,129 @@ export function Audit() {
           </>
         )}
         {cat && !it && <Button variant="text" onClick={() => nav('/shop/gaps')}>See your gaps</Button>}
+      </div>
+    </Screen>
+  )
+}
+
+/* ---------------- Snap your outfit (Closet → Outfits) ---------------- */
+interface Pick { x: number; y: number; color: string; itemId?: string }
+
+/**
+ * Save an outfit from your own photo: tap each piece you're wearing, the app suggests the closest
+ * pieces from your closet by color, you pick the right one. Saved to Outfits with the photo attached.
+ */
+export function SnapOutfit() {
+  const { state, saveOutfitPhoto } = useStore()
+  const nav = useNavigate()
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [url, setUrl] = useState<string>()
+  const [picks, setPicks] = useState<Pick[]>([])
+  const [pending, setPending] = useState<Pick | null>(null)
+  const [cat, setCat] = useState<Category | 'all'>('all')
+  const [more, setMore] = useState(false)
+  const [wearToday, setWearToday] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const closet = state.items.filter((i) => i.status === 'active' && i.tagged)
+  usePhotoSwatches(closet)
+  useEffect(() => { if (!photo) return; const u = URL.createObjectURL(photo); setUrl(u); return () => URL.revokeObjectURL(u) }, [photo])
+
+  const chosen = picks.map((p) => p.itemId).filter(Boolean) as string[]
+  const cats = CATEGORIES.filter((c) => closet.some((i) => i.category === c))
+  const candidates = pending
+    ? closet.filter((i) => !chosen.includes(i.id) && (cat === 'all' || i.category === cat))
+      .map((i) => ({ i, d: itemHex(i) ? colorDistance(pending.color, itemHex(i)!) : 9999 }))
+      .sort((a, b) => a.d - b.d).slice(0, more ? 9 : 3).map((x) => x.i)
+    : []
+
+  const tap = (e: React.MouseEvent<HTMLImageElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const color = colorAt(e.clientX, e.clientY)
+    if (!color) return
+    setPending({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100, color })
+    setCat('all'); setMore(false)
+  }
+  const choose = (it: Item) => { if (!pending) return; setPicks([...picks, { ...pending, itemId: it.id }]); setPending(null) }
+  const save = async () => {
+    if (!photo || !chosen.length) return
+    setSaving(true)
+    await saveOutfitPhoto(chosen, photo, wearToday)
+    toast(wearToday ? 'Outfit saved · logged as worn' : 'Outfit saved')
+    nav('/closet?view=outfits', { replace: true })
+  }
+
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col gap-4">
+        <BackBar label="Outfits" />
+        <Header title="Snap your outfit" body={!photo ? 'Take a photo of what you’re wearing — a mirror selfie works — and match it to pieces in your closet.' : pending ? 'Which piece is this?' : 'Tap each piece you’re wearing in the photo.'} />
+        {!photo ? (
+          closet.length ? (
+            <div className="flex flex-col gap-2.5">
+              <PhotoPicker camera multiple={false} onFiles={(f) => setPhoto(f[0])} className="w-full"><Card className="flex flex-col gap-1"><span className="flex items-center gap-2.5 text-[16px] font-semibold"><Icon name="camera" />Take a photo</span><Body>Use your camera right now.</Body></Card></PhotoPicker>
+              <PhotoPicker multiple={false} onFiles={(f) => setPhoto(f[0])} className="w-full"><Card className="flex flex-col gap-1"><span className="flex items-center gap-2.5 text-[16px] font-semibold"><Icon name="plus" />Choose from photos</span><Body>Pick an outfit photo you already took.</Body></Card></PhotoPicker>
+            </div>
+          ) : <Empty title="Add pieces first" body="Snap your outfit matches your photo to pieces in your closet." action={<Button to="/closet/add">Add pieces</Button>} />
+        ) : (
+          <>
+            <div className="relative mx-auto w-fit">
+              {url && <img src={url} alt="Your outfit" draggable={false} onClick={tap} className="block max-h-[380px] w-auto max-w-full cursor-crosshair rounded-lg" />}
+              {picks.map((p, i) => (
+                <span key={i} className="pointer-events-none absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-bg bg-primary text-[12px] font-semibold text-cloud" style={{ left: `${p.x}%`, top: `${p.y}%` }}>{i + 1}</span>
+              ))}
+              {pending && <span className="pointer-events-none absolute h-7 w-7 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full border-[3px] border-bg shadow-overlay" style={{ left: `${pending.x}%`, top: `${pending.y}%`, background: pending.color }} />}
+            </div>
+
+            {pending ? (
+              <div className="unfold flex flex-col gap-3 rounded-lg bg-surface p-3.5">
+                <div className="flex items-center gap-2"><span className="h-5 w-5 rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/0.15)]" style={{ background: pending.color }} /><span className="text-[14px] font-semibold">Closest in your closet</span></div>
+                <div className="no-scrollbar flex gap-2 overflow-x-auto">
+                  <Chip small label="All" selected={cat === 'all'} onClick={() => setCat('all')} />
+                  {cats.map((c) => <Chip key={c} small label={CATEGORY_LABEL[c]} selected={cat === c} onClick={() => setCat(c)} />)}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {candidates.map((it) => (
+                    <button key={it.id} onClick={() => choose(it)} className="press flex flex-col gap-1 text-left">
+                      <span className="flex aspect-square items-center justify-center rounded-md bg-tile"><ItemImage item={it} size={78} /></span>
+                      <span className="truncate text-[12px] font-medium">{it.name}</span>
+                    </button>
+                  ))}
+                </div>
+                {!candidates.length && <p className="text-[13px] text-text-muted">Nothing left in this category.</p>}
+                <div className="flex justify-between text-[13px] font-medium">
+                  <button onClick={() => setPending(null)} className="text-text/65 underline underline-offset-2">Not in my closet</button>
+                  {!more && candidates.length === 3 && <button onClick={() => setMore(true)} className="underline underline-offset-2">Show more</button>}
+                </div>
+              </div>
+            ) : picks.length > 0 && (
+              <div className="flex flex-col">
+                {picks.map((p, i) => {
+                  const it = state.items.find((x) => x.id === p.itemId)
+                  return it && (
+                    <div key={i} className="flex items-center gap-3 border-b border-border py-2 last:border-0">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-semibold text-cloud">{i + 1}</span>
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-tile"><ItemImage item={it} size={38} /></span>
+                      <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{it.name}</span>
+                      <button onClick={() => setPicks(picks.filter((_, j) => j !== i))} aria-label={`Remove ${it.name}`} className="px-2 text-[18px] text-text/45">×</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="flex-1" />
+            {!pending && (
+              <>
+                <div className="flex items-center justify-between border-t border-border pt-3.5">
+                  <div><p className="text-[15px] font-medium">Wearing it today</p><p className="text-[12px] text-text-muted">Adds it to today and logs each piece as worn</p></div>
+                  <Toggle initial={wearToday} onChange={setWearToday} />
+                </div>
+                <Button onClick={save}>{saving ? 'Saving…' : chosen.length ? `Save outfit · ${chosen.length} ${chosen.length === 1 ? 'piece' : 'pieces'}` : 'Tap a piece in the photo to start'}</Button>
+                <Button variant="text" onClick={() => { setPhoto(null); setPicks([]); setPending(null) }}>Use a different photo</Button>
+              </>
+            )}
+          </>
+        )}
       </div>
     </Screen>
   )

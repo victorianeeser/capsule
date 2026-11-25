@@ -4,7 +4,7 @@ import { eraseAll, invalidateImage, loadImage, loadState, saveImage, saveState, 
 import { cutOut, hasTransparency, prepareCutout, shrink } from './images'
 import { getForecast, type DayWeather, type Forecast } from './weather'
 import { addDays, dayName, today } from './dates'
-import { suggest, type Suggestion } from './suggest'
+import { occasionLabel as occasionLabelFor, suggest, type Suggestion } from './suggest'
 
 /**
  * Turn a photo filename into a starting name/brand, e.g.
@@ -161,11 +161,32 @@ function useStoreValue() {
   /** "No outfit needed" for a date (toggle). */
   const toggleSkip = useCallback((date: string) => update((s) => ({ ...s, skipped: s.skipped.includes(date) ? s.skipped.filter((d) => d !== date) : [...s.skipped, date] })), [update])
   /** Take an outfit out of Favorites: keep it if a day still uses it, otherwise delete it. */
-  const removeFavorite = useCallback((outfitId: string) => update((s) => (
-    s.planned.some((p) => p.outfitId === outfitId)
-      ? { ...s, outfits: s.outfits.map((o) => (o.id === outfitId ? { ...o, isFavorite: false } : o)) }
-      : { ...s, outfits: s.outfits.filter((o) => o.id !== outfitId) }
-  )), [update])
+  const removeFavorite = useCallback((outfitId: string) => {
+    const s0 = stateRef.current
+    const o = s0.outfits.find((x) => x.id === outfitId)
+    const kept = s0.planned.some((p) => p.outfitId === outfitId)
+    if (o?.photoId && !kept) { deleteImage(o.photoId); invalidateImage(o.photoId) }
+    update((s) => (kept
+      ? { ...s, outfits: s.outfits.map((x) => (x.id === outfitId ? { ...x, isFavorite: false } : x)) }
+      : { ...s, outfits: s.outfits.filter((x) => x.id !== outfitId) }))
+  }, [update])
+  /**
+   * Snap your outfit: save an outfit from your own photo plus the closet pieces you matched in it.
+   * It lands in Closet → Outfits; with `wearToday` it's also planned for today and every piece is logged as worn.
+   */
+  const saveOutfitPhoto = useCallback(async (itemIds: string[], photo: Blob, wearToday: boolean) => {
+    const photoId = uid(), outfitId = uid()
+    await saveImage(photoId, await shrink(photo, 1000))
+    const day = today()
+    update((s) => {
+      const o: Outfit = { id: outfitId, itemIds, isFavorite: true, photoId, createdAt: new Date().toISOString() }
+      if (!wearToday) return { ...s, outfits: [...s.outfits, o] }
+      const pos = s.planned.filter((x) => x.date === day).length
+      const po: PlannedOutfit = { id: uid(), date: day, outfitId, occasion: occasionLabelFor(s, day), position: pos, note: '' }
+      return { ...s, outfits: [...s.outfits, o], planned: [...s.planned, po], wear: [...s.wear, ...itemIds.map((itemId) => ({ id: uid(), itemId, outfitId, wornOn: day }))] }
+    })
+    return outfitId
+  }, [update])
   /** Save an outfit straight to Favorites (from the Canvas) without planning it. */
   const saveFavorite = useCallback((itemIds: string[], layout?: Outfit['layout']) => {
     const id = uid()
@@ -198,7 +219,7 @@ function useStoreValue() {
 
   return {
     state, ready, forecast, queue, weatherFor, update,
-    addPhotos, saveItem, deleteItem, suggestFor, plan, unplan, setNote, setDay, toggleWore, setDraft, toggleSkip, removeFavorite, saveFavorite, setItemSwatch, setPalette,
+    addPhotos, saveItem, deleteItem, suggestFor, plan, unplan, setNote, setDay, toggleWore, setDraft, toggleSkip, removeFavorite, saveFavorite, saveOutfitPhoto, setItemSwatch, setPalette,
     addGap, toggleGap, removeGap, addWish, removeWish, setProfile, resetAll, loadDemo,
     today: today(), tomorrow: addDays(today(), 1),
   }

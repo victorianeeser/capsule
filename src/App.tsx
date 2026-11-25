@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router'
 import { Welcome, Routine, City, FirstPieces } from './screens/Onboarding'
 import { Home, HomeEvening, Favorites, ClosetStats } from './screens/Home'
 import { PlannerDay, PlannerMonth, AddOutfit, Canvas, AddClothes, OutfitDetails, OffDay, PlanWeek, OutfitColors } from './screens/Planner'
-import { Closet, AddItems, TagItem, ItemDetail, Audit } from './screens/Closet'
+import { Closet, AddItems, TagItem, ItemDetail, Audit, SnapOutfit } from './screens/Closet'
 import { Shop, SearchResult, WouldThisGo, Gaps, Wishlist, NewWish } from './screens/Shop'
 import { Settings } from './screens/Settings'
 import { useStore } from './lib/store'
@@ -16,7 +16,7 @@ const ROUTES: [string, () => React.JSX.Element][] = [
   ['/home', Home], ['/home/evening', HomeEvening], ['/favorites', Favorites], ['/stats', ClosetStats],
   ['/planner', PlannerDay], ['/planner/month', PlannerMonth], ['/planner/add', AddOutfit], ['/planner/canvas', Canvas],
   ['/planner/add-clothes', AddClothes], ['/planner/details', OutfitDetails], ['/planner/off-day', OffDay], ['/planner/week', PlanWeek], ['/planner/colors', OutfitColors],
-  ['/closet', Closet], ['/closet/add', AddItems], ['/closet/tag', TagItem], ['/closet/tag/:id', TagItem], ['/closet/item/:id', ItemDetail], ['/closet/audit', Audit],
+  ['/closet', Closet], ['/closet/add', AddItems], ['/closet/tag', TagItem], ['/closet/tag/:id', TagItem], ['/closet/item/:id', ItemDetail], ['/closet/audit', Audit], ['/closet/snap', SnapOutfit],
   ['/shop', Shop], ['/shop/search', SearchResult], ['/shop/would', WouldThisGo], ['/shop/gaps', Gaps], ['/shop/wishlist', Wishlist], ['/shop/wishlist/new', NewWish],
   ['/settings', Settings],
 ]

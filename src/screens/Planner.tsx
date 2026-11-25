@@ -6,9 +6,8 @@ import { ACTIVITIES, CATEGORIES, CATEGORY_LABEL, SWATCH, type Activity, type Cat
 import { addDays, dayShort, fmtLong, fmtShort, iso, monday, monthTitle, parse, weekStart } from '../lib/dates'
 import { autoSuggests, dayInfo, occasionLabel } from '../lib/suggest'
 import { deg, isRainy, condition } from '../lib/weather'
-import { autoLayout, Collage, Empty, ItemImage, MissingPieces, OutfitTile, Thumbs } from '../components'
-import { loadImage } from '../lib/db'
-import { colorAt, dominantColor } from '../lib/color'
+import { autoLayout, Collage, Empty, ItemImage, MissingPieces, OutfitTile, Thumbs, usePhotoSwatches } from '../components'
+import { colorAt } from '../lib/color'
 import { toast } from '../lib/toast'
 
 /* ---------------- shared planner chrome ---------------- */
@@ -239,23 +238,6 @@ function stripRows(items: Item[], p: PlannedOutfit, ids: string[]): string[][] {
   return ordered(items, ids).map((it) => (it.swatch ? [it.swatch] : it.colors.length ? it.colors : ['']))
 }
 
-/** Pull each piece's main color from its photo once, and remember it. */
-function usePhotoSwatches(items: Item[]) {
-  const { setItemSwatch } = useStore()
-  const todo = items.filter((i) => !i.swatch && i.imageId && !i.processing)
-  const key = todo.map((i) => i.id).join()
-  useEffect(() => {
-    let live = true
-    ;(async () => {
-      for (const it of todo) {
-        const blob = await loadImage(it.imageId!)
-        const c = blob && (await dominantColor(blob).catch(() => undefined))
-        if (live && c) setItemSwatch(it.id, c)
-      }
-    })()
-    return () => { live = false }
-  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
-}
 
 function Swatches({ rows, label }: { rows: string[][]; label: string }) {
   return (

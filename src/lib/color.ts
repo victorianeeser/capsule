@@ -1,5 +1,18 @@
 /** Colors pulled from clothing photos (Month → Colors, Outfit colors). */
 
+import { SWATCH, type Item } from './types'
+
+/** A piece's color for matching: its photo color, else its first color tag. */
+export const itemHex = (i: Item): string | undefined => i.swatch ?? SWATCH[i.colors[0] ?? '']
+
+/** How different two colors look (0 = same). "Redmean" weighting — close to how eyes compare colors, cheap to compute. */
+export function colorDistance(a: string, b: string) {
+  const p = (h: string) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16))
+  const [r1, g1, b1] = p(a), [r2, g2, b2] = p(b)
+  const rm = (r1 + r2) / 2, dr = r1 - r2, dg = g1 - g2, db = b1 - b2
+  return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db)
+}
+
 const hex = (r: number, g: number, b: number) => '#' + [r, g, b].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase()
 
 /**

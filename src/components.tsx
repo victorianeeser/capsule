@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ensureImageUrl, imageUrl, onImageChange } from './lib/db'
+import { ensureImageUrl, imageUrl, loadImage, onImageChange } from './lib/db'
+import { dominantColor } from './lib/color'
 import { KIND_FOR, type Item, type Placed } from './lib/types'
 import { Garment, Icon } from './ui'
 import { Link } from 'react-router'
@@ -177,4 +178,22 @@ export function QueueBanner() {
       {firstRun && queue.modelPct > 0 ? ` · first-time setup ${Math.round(queue.modelPct * 100)}%` : ''}
     </p>
   )
+}
+
+/** Pull each piece's main color from its photo once, and remember it. */
+export function usePhotoSwatches(items: Item[]) {
+  const { setItemSwatch } = useStore()
+  const todo = items.filter((i) => !i.swatch && i.imageId && !i.processing)
+  const key = todo.map((i) => i.id).join()
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      for (const it of todo) {
+        const blob = await loadImage(it.imageId!)
+        const c = blob && (await dominantColor(blob).catch(() => undefined))
+        if (live && c) setItemSwatch(it.id, c)
+      }
+    })()
+    return () => { live = false }
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 }
