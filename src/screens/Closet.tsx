@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { BackBar, Body, Button, Card, Chip, Eyebrow, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
+import { BackBar, Body, Button, Card, Chip, Eyebrow, FabButton, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
 import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, NUMBER_SIZES_FOR, SIZES_FOR, WARMTH_LABEL, colorText, countPieces, type Category, type DressLevel, type Item, type Warmth } from '../lib/types'
 import { wearStats } from '../lib/suggest'
@@ -56,7 +56,7 @@ export function Closet() {
     </div>
   )
   return (
-    <Screen tabs fab={<Link to="/closet/add" aria-label="Add items" className="press flex h-14 w-14 items-center justify-center rounded-full bg-primary text-cloud shadow-overlay"><Icon name="plus" size={26} /></Link>}>
+    <Screen tabs fab={<FabButton label="Add items" to="/closet/add" />}>
       <div className="flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
           <div><Title>Closet</Title><p className="text-[13px] text-text-muted">{countPieces(active)} {countPieces(active) === 1 ? 'piece' : 'pieces'}</p></div>
@@ -93,6 +93,10 @@ export function Closet() {
             )}
             <div className="no-scrollbar flex gap-2 overflow-x-auto">
               {CATS.map((c) => <Chip key={c} label={c === 'all' ? 'All' : CATEGORY_LABEL[c]} selected={cat === c} onClick={() => setCat(c)} />)}
+            </div>
+            {/* Dress level at a glance — same filter as in Filter & sort, so the two stay in sync. */}
+            <div className="no-scrollbar -mt-1.5 flex gap-2 overflow-x-auto" role="group" aria-label="Dress level">
+              {(Object.entries(DRESS_LABEL) as [DressLevel, string][]).map(([v, l]) => <Chip key={v} small label={l} selected={f.levels.includes(v)} onClick={() => flip('levels', v)} />)}
             </div>
             {toAudit > 0 && (
               <Link to="/closet/audit" className="flex items-center gap-2 rounded-md bg-soft px-3.5 py-3 text-[14px] font-medium"><span className="flex-1">Closet audit · {toAudit} to review</span><Icon name="chev" size={20} /></Link>

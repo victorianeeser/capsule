@@ -107,7 +107,7 @@ function useStoreValue() {
           console.warn('Background removal failed; keeping the original photo.', e)
           setQueue((q) => ({ ...q, done: q.done + 1, failed: q.failed + 1 }))
         }
-        update((s) => ({ ...s, items: s.items.map((i) => (i.id === it.id ? { ...i, processing: false } : i)) }))
+        update((s) => ({ ...s, items: s.items.map((i) => (i.id === it.id ? { ...i, processing: false, swatch: undefined } : i)) }))
       }
     })()
     return created.map((c) => c.id)
@@ -173,6 +173,11 @@ function useStoreValue() {
     return id
   }, [update])
 
+  /** Remember a piece's photo color (computed once, then reused). */
+  const setItemSwatch = useCallback((id: string, swatch: string) => update((s) => ({ ...s, items: s.items.map((i) => (i.id === id ? { ...i, swatch } : i)) })), [update])
+  /** A day's hand-edited color strip; pass undefined to go back to the photo colors. */
+  const setPalette = useCallback((plannedId: string, palette?: string[]) => update((s) => ({ ...s, planned: s.planned.map((p) => (p.id === plannedId ? { ...p, palette } : p)) })), [update])
+
   const setDraft = useCallback((d?: Draft) => update((s) => ({ ...s, draft: d })), [update])
 
   /* ---------------- gaps & wishlist ---------------- */
@@ -193,7 +198,7 @@ function useStoreValue() {
 
   return {
     state, ready, forecast, queue, weatherFor, update,
-    addPhotos, saveItem, deleteItem, suggestFor, plan, unplan, setNote, setDay, toggleWore, setDraft, toggleSkip, removeFavorite, saveFavorite,
+    addPhotos, saveItem, deleteItem, suggestFor, plan, unplan, setNote, setDay, toggleWore, setDraft, toggleSkip, removeFavorite, saveFavorite, setItemSwatch, setPalette,
     addGap, toggleGap, removeGap, addWish, removeWish, setProfile, resetAll, loadDemo,
     today: today(), tomorrow: addDays(today(), 1),
   }

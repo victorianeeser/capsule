@@ -28,6 +28,7 @@ export interface Item {
   processing?: boolean    // background removal still running
   demoKind?: GarmentKind  // demo items use a silhouette instead of a photo
   sourceName?: string     // original photo filename (used to prefill name/brand)
+  swatch?: string         // main color pulled from the photo (hex), for Month → Colors
   createdAt: string
 }
 
@@ -45,6 +46,7 @@ export interface PlannedOutfit {
   note: string
   suggested?: boolean
   reason?: string
+  palette?: string[]      // hand-edited colors for this day's strip (hex); unset = pulled from the photos
 }
 
 export interface PlannedDay { date: string; dayType: DayType; activities: Activity[] }
@@ -94,6 +96,11 @@ export const SIZES_FOR = (c: Category): string[] => (c === 'shoes' ? ['8', '9', 
 /** Bottoms also come in number sizes (jeans 2 4 6 8 …). */
 export const NUMBER_SIZES_FOR = (c: Category): string[] => (c === 'bottom' ? ['0', '2', '4', '6', '8', '10', '12'] : [])
 export const colorText = (i: Item) => i.colors.join(' & ')
+/** How each color tag looks as a swatch (Month view → Colors). These are clothing colors, not UI colors. "Pattern" is drawn striped. */
+export const SWATCH: Record<string, string> = {
+  Black: '#1F1C1A', White: '#FFFFFF', Cream: '#EFE6D2', Gray: '#9C9993', Brown: '#6B4F3A', Tan: '#C8A97E', Navy: '#26334C',
+  Blue: '#5B84B1', Denim: '#6F8AA8', Green: '#5E7A55', Red: '#A8372F', Pink: '#E3A6B4', Purple: '#7D5A8C', Yellow: '#E3C55A',
+}
 /** How many pieces a list really is, counting quantities (10 leggings = 10). */
 export const countPieces = (items: Item[]) => items.reduce((n, i) => n + Math.max(1, i.quantity ?? 1), 0)
 export const ACTIVITIES: Activity[] = ['Brunch', 'Errands', 'Going out', 'Gym', 'Lounging', 'Game day']

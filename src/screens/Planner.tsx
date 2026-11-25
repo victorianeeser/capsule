@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { BackBar, Button, Card, Chip, CircleButton, Eyebrow, Header, Icon, Pill, Screen, Title, Toggle } from '../ui'
+import { BackBar, Button, Card, Chip, CircleButton, Eyebrow, FabButton, Header, Icon, Pill, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
-import { ACTIVITIES, CATEGORIES, CATEGORY_LABEL, type Activity, type Category, type Item, type Placed, type PlannedOutfit } from '../lib/types'
+import { ACTIVITIES, CATEGORIES, CATEGORY_LABEL, SWATCH, type Activity, type Category, type Item, type Placed, type PlannedOutfit } from '../lib/types'
 import { addDays, dayShort, fmtLong, fmtShort, iso, monday, monthTitle, parse, weekStart } from '../lib/dates'
 import { autoSuggests, dayInfo, occasionLabel } from '../lib/suggest'
 import { deg, isRainy, condition } from '../lib/weather'
 import { autoLayout, Collage, Empty, ItemImage, OutfitTile, Thumbs } from '../components'
+import { loadImage } from '../lib/db'
+import { colorAt, dominantColor } from '../lib/color'
 
 /* ---------------- shared planner chrome ---------------- */
 function PlannerNav() {
@@ -220,8 +222,111 @@ function MiniCollage({ itemIds, layout }: { itemIds: string[]; layout?: Placed[]
   useEffect(() => { if (ref.current) setW(ref.current.offsetWidth) }, [])
   return <span ref={ref} className="absolute inset-0"><Collage itemIds={itemIds} layout={layout} width={w} height={66} top={3} padX={2} /></span>
 }
+/* ---------------- Outfit colors (Month → Colors) ---------------- */
+const SWATCH_ORDER = ['outerwear', 'sweater', 'top', 'dress', 'lounge', 'bottom', 'shoes', 'accessory']
+/** A color as a block: a hex from a photo or the editor, a tag name (Blue, Denim…), or "Pattern" (striped). */
+const swatchStyle = (c: string): React.CSSProperties =>
+  c.startsWith('#') ? { background: c }
+    : c === 'Pattern' ? { backgroundImage: 'repeating-linear-gradient(45deg, var(--color-text) 0 2px, var(--color-tile) 2px 5px)' }
+      : SWATCH[c] ? { background: SWATCH[c] } : {}
+
+/** The pieces of an outfit, outer layer first and shoes last. */
+const ordered = (items: Item[], ids: string[]) => ids.map((id) => items.find((i) => i.id === id)).filter(Boolean).sort((a, b) => SWATCH_ORDER.indexOf(a!.category) - SWATCH_ORDER.indexOf(b!.category)) as Item[]
+/** A day's strip, row by row: the hand-edited palette if there is one, otherwise each piece's photo color (or its tag colors). */
+function stripRows(items: Item[], p: PlannedOutfit, ids: string[]): string[][] {
+  if (p.palette?.length) return p.palette.map((c) => [c])
+  return ordered(items, ids).map((it) => (it.swatch ? [it.swatch] : it.colors.length ? it.colors : ['']))
+}
+
+/** Pull each piece's main color from its photo once, and remember it. */
+function usePhotoSwatches(items: Item[]) {
+  const { setItemSwatch } = useStore()
+  const todo = items.filter((i) => !i.swatch && i.imageId && !i.processing)
+  const key = todo.map((i) => i.id).join()
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      for (const it of todo) {
+        const blob = await loadImage(it.imageId!)
+        const c = blob && (await dominantColor(blob).catch(() => undefined))
+        if (live && c) setItemSwatch(it.id, c)
+      }
+    })()
+    return () => { live = false }
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+function Swatches({ rows, label }: { rows: string[][]; label: string }) {
+  return (
+    <span className="absolute inset-1 flex flex-col gap-[2px] overflow-hidden rounded-[6px]" aria-label={label}>
+      {rows.map((r, i) => (
+        <span key={i} className="flex min-h-0 flex-1">
+          {r.map((c, j) => <span key={j} className="flex-1 bg-cloud shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)]" style={swatchStyle(c)} />)}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/** Edit a day's colors: the outfit on the left, its palette on the right. Tap the photo to pull a color from it. */
+export function OutfitColors() {
+  const { state, setPalette } = useStore()
+  const nav = useNavigate()
+  const id = useSearchParams()[0].get('id')
+  const p = state.planned.find((x) => x.id === id)
+  const o = p && state.outfits.find((x) => x.id === p.outfitId)
+  const pieces = ordered(state.items, o?.itemIds ?? [])
+  usePhotoSwatches(pieces)
+  const [sel, setSel] = useState<number | null>(null)
+  const [msg, setMsg] = useState('')
+  if (!p || !o) return <Screen><BackBar /><Empty title="Not found" body="This outfit is no longer planned." /></Screen>
+  const auto = pieces.map((it) => it.swatch ?? it.colors[0] ?? '')
+  const colors = p.palette?.length ? p.palette : auto
+  const save = (next: string[]) => setPalette(p.id, next)
+  const put = (c: string) => {
+    if (sel !== null) { const next = [...colors]; next[sel] = c; save(next) } else { save([...colors, c]); setSel(colors.length) }
+    setMsg('')
+  }
+  const pick = (e: React.MouseEvent) => { const c = colorAt(e.clientX, e.clientY); if (c) put(c); else setMsg('Tap right on a piece to pull its color.') }
+  const remove = () => { if (sel === null) return; const next = colors.filter((_, i) => i !== sel); setSel(null); save(next.length ? next : auto) }
+  const toHex = (c: string) => (c.startsWith('#') ? c : SWATCH[c] ?? '#9C9993')
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col gap-4">
+        <BackBar label="Month" right="Open day" onRight={() => nav(`/planner?date=${p.date}`)} />
+        <Header eyebrow={`${fmtShort(p.date)} · ${p.occasion}`} title="Outfit colors" />
+        <div className="flex h-[340px] gap-3">
+          <div onClick={pick} className="relative w-[238px] shrink-0 cursor-crosshair rounded-[16px] bg-tile" title="Tap a piece to pull its color">
+            <Collage itemIds={o.itemIds} layout={o.layout} width={238} height={328} top={12} padX={12} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-[3px] overflow-hidden rounded-[16px] border border-border p-[3px]" role="listbox" aria-label="Colors">
+            {colors.map((c, i) => (
+              <button key={i} role="option" aria-selected={sel === i} onClick={() => setSel(sel === i ? null : i)} title={c}
+                className={`min-h-5 flex-1 rounded-[10px] bg-cloud shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)] transition-[outline] ${sel === i ? 'outline-2 outline-offset-2 outline-text' : ''}`} style={swatchStyle(c)} />
+            ))}
+          </div>
+        </div>
+        <p className="text-[13px] leading-[1.4] text-text-muted">{msg || (sel === null ? 'Tap the outfit to add a color straight from the photo. Tap a color on the right to change or remove it.' : 'Tap the outfit to replace the selected color, or pick one below.')}</p>
+        <div className="flex flex-wrap gap-2">
+          <label className="press flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-[13px] font-medium">
+            <Icon name="plus" size={16} />{sel === null ? 'Add color' : 'Pick a color'}
+            <input type="color" className="sr-only" value={toHex(sel === null ? colors[colors.length - 1] ?? '#9C9993' : colors[sel])} onChange={(e) => put(e.target.value.toUpperCase())} />
+          </label>
+          {sel !== null && <button onClick={remove} className="press rounded-full border border-border px-3.5 py-2 text-[13px] font-medium">Remove</button>}
+          {p.palette?.length ? <button onClick={() => { setSel(null); setPalette(p.id, undefined) }} className="press rounded-full px-3.5 py-2 text-[13px] font-medium text-text/70 underline underline-offset-2">Reset to photo colors</button> : null}
+        </div>
+        <div className="flex-1" />
+        <Button onClick={() => nav(-1)}>Done</Button>
+      </div>
+    </Screen>
+  )
+}
+
+type MonthMode = 'outfits' | 'colors'
+const MONTH_MODE_KEY = 'capsule:monthView'
+
 export function PlannerMonth() {
-  const { state, setDraft, today } = useStore()
+  const { state, setDraft, today, tomorrow } = useStore()
   const nav = useNavigate()
   const [params, setParams] = useSearchParams()
   const m = params.get('m') ?? today.slice(0, 7)
@@ -232,15 +337,27 @@ export function PlannerMonth() {
   const weeks = Math.ceil((parse(first).getDay() + daysInMonth) / 7)
   const cells = Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i))
   const shift = (n: number) => { const d = new Date(y, mo - 1 + n, 1); setParams({ m: iso(d).slice(0, 7) }, { replace: true }) }
+  const [mode, setModeState] = useState<MonthMode>(() => { try { return localStorage.getItem(MONTH_MODE_KEY) === 'colors' ? 'colors' : 'outfits' } catch { return 'outfits' } })
+  const setMode = (v: MonthMode) => { setModeState(v); try { localStorage.setItem(MONTH_MODE_KEY, v) } catch { /* private mode */ } }
+  const monthIds = new Set(state.planned.filter((x) => x.date.slice(0, 7) === m).flatMap((x) => state.outfits.find((o) => o.id === x.outfitId)?.itemIds ?? []))
+  usePhotoSwatches(mode === 'colors' ? state.items.filter((i) => monthIds.has(i.id)) : [])
   return (
-    <Screen tabs pad={false}>
+    <Screen tabs pad={false} fab={<FabButton label="Plan an outfit for tomorrow" onClick={() => { setDraft({ date: tomorrow, itemIds: [], occasion: occasionLabel(state, tomorrow) }); nav(`/planner/add?date=${tomorrow}`) }} />}>
       <PlannerNav />
       <DayMonth active="Month" date={today.slice(0, 7) === m ? today : first} />
-      <div className="flex flex-col gap-1.5 px-4 pt-3.5">
+      <div className="flex flex-col gap-1.5 px-4 pt-3.5 pb-24">
         <div className="flex items-center justify-between">
           <button onClick={() => shift(-1)} aria-label="Previous month" className="p-1"><Icon name="back" size={20} /></button>
           <p className="text-[17px] font-semibold">{monthTitle(y, mo - 1)}</p>
           <button onClick={() => shift(1)} aria-label="Next month" className="p-1"><Icon name="chev" size={20} /></button>
+        </div>
+        <div className="flex justify-center pt-1" role="group" aria-label="Show planned days as">
+          <div className="flex rounded-full bg-surface p-[3px] text-[13px]">
+            {([['outfits', 'Outfits'], ['colors', 'Colors']] as const).map(([v, l]) => (
+              <button key={v} onClick={() => setMode(v)} aria-pressed={mode === v}
+                className={`rounded-full px-4 py-1.5 transition-colors ${mode === v ? 'bg-bg font-semibold shadow-overlay' : 'text-text/55'}`}>{l}</button>
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-7 gap-1.5 pt-1.5 text-center text-[12px] text-text/50">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => <span key={d}>{d}</span>)}</div>
         <div className="grid grid-cols-7 gap-x-1.5 gap-y-1">
@@ -254,9 +371,9 @@ export function PlannerMonth() {
               <div key={d} className="flex flex-col items-center gap-1 border-t border-border pt-1">
                 <span className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-[13px] font-medium ${isToday ? 'bg-primary text-cloud' : !inMonth ? 'text-text/30' : ''}`}>{parse(d).getDate()}</span>
                 {inMonth ? (
-                  <button onClick={() => { if (p) nav(`/planner?date=${d}`); else { setDraft({ date: d, itemIds: [], occasion: occasionLabel(state, d) }); nav(`/planner/add?date=${d}`) } }}
+                  <button onClick={() => { if (p && mode === 'colors') nav(`/planner/colors?id=${p.id}`); else if (p) nav(`/planner?date=${d}`); else { setDraft({ date: d, itemIds: [], occasion: occasionLabel(state, d) }); nav(`/planner/add?date=${d}`) } }}
                     className={`relative flex h-[66px] w-full flex-col items-center justify-center overflow-hidden rounded-sm ${p ? 'bg-tile' : 'bg-soft text-[22px] text-text/45'}`}>
-                    {p ? <MiniCollage itemIds={ids} layout={o?.layout} /> : '+'}
+                    {p ? (mode === 'colors' ? <Swatches rows={stripRows(state.items, p, ids)} label={`Colors for ${fmtShort(d)}`} /> : <MiniCollage itemIds={ids} layout={o?.layout} />) : '+'}
                   </button>
                 ) : <span className="h-[66px]" />}
               </div>

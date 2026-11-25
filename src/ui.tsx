@@ -112,6 +112,13 @@ export function Screen({ children, tabs = false, pad = true, className = '', dar
   )
 }
 
+/** The floating + button (Closet, Planner). Pass it to <Screen fab>. */
+export function FabButton({ label, to, onClick }: { label: string; to?: string; onClick?: () => void }) {
+  const cls = 'press flex h-14 w-14 items-center justify-center rounded-full bg-primary text-cloud shadow-overlay'
+  return to ? <Link to={to} aria-label={label} title={label} className={cls}><Icon name="plus" size={26} /></Link>
+    : <button onClick={onClick} aria-label={label} title={label} className={cls}><Icon name="plus" size={26} /></button>
+}
+
 /* ---------------- Type ---------------- */
 export const Eyebrow = ({ children, className = '' }: { children: ReactNode; className?: string }) => <p className={`eyebrow ${className}`}>{children}</p>
 export const Title = ({ children, className = '' }: { children: ReactNode; className?: string }) => <h1 className={`display text-[32px] ${className}`}>{children}</h1>
