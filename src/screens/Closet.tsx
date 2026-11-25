@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { BackBar, Body, Button, Card, Chip, Eyebrow, FabButton, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
+import { toast } from '../lib/toast'
 import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_LABEL, NUMBER_SIZES_FOR, SIZES_FOR, WARMTH_LABEL, colorText, countPieces, type Category, type DressLevel, type Item, type Warmth } from '../lib/types'
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay, relative } from '../lib/dates'
@@ -129,7 +130,7 @@ export function AddItems() {
   const { state, addPhotos } = useStore()
   const nav = useNavigate()
   const untagged = state.items.filter((i) => !i.tagged).length
-  const onFiles = async (f: File[]) => { await addPhotos(f); nav('/closet/tag') }
+  const onFiles = async (f: File[]) => { await addPhotos(f); toast(`${f.length} ${f.length === 1 ? 'photo' : 'photos'} added`); nav('/closet/tag') }
   return (
     <Screen tabs>
       <div className="flex flex-col gap-4">
@@ -168,6 +169,7 @@ export function TagItem() {
   const save = () => {
     const name = it.name === 'New piece' || !it.name.trim() ? `${colorText(it)} ${CATEGORY_ONE[it.category].toLowerCase()}`.trim().replace(/^./, (c) => c.toUpperCase()) : it.name
     saveItem({ ...it, name, tagged: true })
+    toast(id ? 'Changes saved' : 'Piece added to your closet')
     setDraft(null)
     if (id) nav(-1)
     else if (queue.length <= 1) nav('/closet')
@@ -237,7 +239,7 @@ export function TagItem() {
         <div className="flex items-center justify-between py-1"><span className="text-[14px]">Delicate (skip on rainy days)</span><Toggle key={it.id} initial={it.delicate} onChange={(v) => set({ delicate: v })} /></div>
         <div className="flex-1" />
         <Button onClick={save}>{id ? 'Save' : queue.length > 1 ? 'Save & next' : 'Save'}</Button>
-        {!id && <Button variant="text" onClick={() => { deleteItem(it.id); setDraft(null) }}>Remove this photo</Button>}
+        {!id && <Button variant="text" onClick={() => { deleteItem(it.id); setDraft(null); toast('Photo removed') }}>Remove this photo</Button>}
       </div>
     </Screen>
   )
@@ -275,9 +277,9 @@ export function ItemDetail() {
             <div className="no-scrollbar flex gap-2 overflow-x-auto">{outfits.slice(0, 8).map((o) => <span key={o.id} className="shrink-0 rounded-md bg-surface p-1.5"><Thumbs itemIds={o.itemIds} size={28} bg={false} /></span>)}</div>
           </>
         )}
-        {it.status !== 'active' && <Button variant="secondary" onClick={() => saveItem({ ...it, status: 'active' })}>Move back to my closet</Button>}
+        {it.status !== 'active' && <Button variant="secondary" onClick={() => { saveItem({ ...it, status: 'active' }); toast('Moved back to your closet') }}>Move back to my closet</Button>}
         {confirm ? (
-          <div className="flex gap-2.5"><Button variant="secondary" onClick={() => setConfirm(false)}>Cancel</Button><Button onClick={() => { deleteItem(it.id); nav('/closet') }}>Delete for good</Button></div>
+          <div className="flex gap-2.5"><Button variant="secondary" onClick={() => setConfirm(false)}>Cancel</Button><Button onClick={() => { deleteItem(it.id); toast('Piece deleted'); nav('/closet') }}>Delete for good</Button></div>
         ) : <Button variant="text" onClick={() => setConfirm(true)}>Delete piece</Button>}
       </div>
     </Screen>
@@ -296,7 +298,8 @@ export function Audit() {
   const done = (status: Item['status']) => {
     if (!it) return
     saveItem({ ...it, status })
-    if (status === 'replace') addGap({ label: it.name, category: it.category, source: 'audit', detail: 'From audit · replacing' })
+    if (status === 'replace') { addGap({ label: it.name, category: it.category, source: 'audit', detail: 'From audit · replacing' }); toast('Added to Gaps') }
+    if (status === 'donate') toast('Marked to donate')
     update((s) => ({ ...s, auditDone: [...s.auditDone, it.id] }))
   }
   const st = it ? stats.get(it.id) : undefined

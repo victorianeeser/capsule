@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { BackBar, Button, Chip, Eyebrow, ListRow, Screen, Title } from '../ui'
 import { useStore } from '../lib/store'
+import { toast } from '../lib/toast'
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -56,7 +57,7 @@ export function Settings() {
           <Eyebrow className="text-[11px]">Your data</Eyebrow>
           <p className="py-3 text-[13px] leading-[1.4] text-text/70">Everything is saved on this device and works offline. Accounts and syncing across devices come later.</p>
           <div className="flex flex-col gap-2.5">
-            <Button variant="secondary" onClick={() => { loadDemo(); setDemoAdded(true) }}>{demoAdded ? '✓ Demo closet added' : 'Load demo closet'}</Button>
+            <Button variant="secondary" onClick={() => { loadDemo(); setDemoAdded(true); toast('Demo closet added') }}>{demoAdded ? '✓ Demo closet added' : 'Load demo closet'}</Button>
             {confirm ? (
               <div className="flex gap-2.5">
                 <Button variant="secondary" onClick={() => setConfirm(false)}>Cancel</Button>

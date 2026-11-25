@@ -9,6 +9,7 @@ import { Settings } from './screens/Settings'
 import { useStore } from './lib/store'
 import { MotionProvider } from './lib/motion'
 import { useTheme } from './lib/theme'
+import { Toaster } from './lib/toast'
 
 const ROUTES: [string, () => React.JSX.Element][] = [
   ['/onboarding/routine', Routine], ['/onboarding/city', City], ['/onboarding/pieces', FirstPieces],
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </MotionProvider>
+        <Toaster />
       </div>
     </div>
   )

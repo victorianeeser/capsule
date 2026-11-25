@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { BackBar, Button, Card, Chip, Eyebrow, Header, Heading, Icon, ListRow, Screen, Title } from '../ui'
 import { useStore } from '../lib/store'
+import { toast } from '../lib/toast'
 import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, type Category, type Gap, countPieces } from '../lib/types'
 import { matches } from './Closet'
 import { wearStats } from '../lib/suggest'
@@ -91,7 +92,7 @@ export function SearchResult() {
             )}
             {found.length > 0 && last && <Card><p className="text-[14px]">{countPieces(found) >= 3 ? 'You have plenty — probably skip it.' : 'You have some already — buy only if it’s different.'}</p><p className="text-[12px] text-text-muted">Most recent added {fmtMonthDay(last.slice(0, 10))}</p></Card>}
             <div className="flex-1" />
-            <Button variant="secondary" onClick={() => { addGap({ label: q, source: 'manual' }); setAdded(true) }}>{added ? '✓ Added to Gaps' : `Add “${q}” to Gaps${found.length ? ' anyway' : ''}`}</Button>
+            <Button variant="secondary" onClick={() => { addGap({ label: q, source: 'manual' }); setAdded(true); toast('Added to Gaps') }}>{added ? '✓ Added to Gaps' : `Add “${q}” to Gaps${found.length ? ' anyway' : ''}`}</Button>
             <Button variant="text" to={`/shop/wishlist/new?name=${encodeURIComponent(q)}`}>Save to wishlist</Button>
           </>
         )}
@@ -114,6 +115,7 @@ export function WouldThisGo() {
   const bought = async () => {
     if (!photo) return
     await addPhotos([photo], { category: cat })
+    toast('Added to your closet')
     nav('/closet/tag')
   }
   return (
@@ -142,7 +144,7 @@ export function WouldThisGo() {
             <p className="rounded-[10px] bg-soft px-3.5 py-2.5 text-[13px] font-medium leading-[1.4]">Goes with {partners.length} of your pieces{gap ? ` · fills your “${gap.label}” gap` : ''}</p>
             <div className="flex-1" />
             <Button onClick={bought}>I bought it</Button>
-            <Button variant="secondary" onClick={async () => { await addWish({ name: `${CATEGORY_ONE[cat]} from the store`, note: '', price: '' }, photo); nav('/shop/wishlist') }}>Save to wishlist</Button>
+            <Button variant="secondary" onClick={async () => { await addWish({ name: `${CATEGORY_ONE[cat]} from the store`, note: '', price: '' }, photo); toast('Saved to wishlist'); nav('/shop/wishlist') }}>Save to wishlist</Button>
             <Button variant="text" onClick={() => setPhoto(null)}>Try another photo</Button>
           </>
         )}
@@ -160,9 +162,9 @@ export function Gaps() {
   const open = list.filter((g) => !g.resolved), done = list.filter((g) => g.resolved)
   const row = (g: Gap) => (
     <div key={g.id} className="flex items-center gap-3 border-b border-border py-3.5">
-      <button onClick={() => toggleGap(g.id)} aria-label={g.resolved ? 'Mark as needed' : 'Mark as bought'} className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary ${g.resolved ? 'bg-primary text-cloud' : ''}`}>{g.resolved && <Icon name="check" size={14} strokeWidth={2.4} />}</button>
+      <button onClick={() => { toggleGap(g.id); toast(g.resolved ? 'Back on your list' : 'Marked as bought') }} aria-label={g.resolved ? 'Mark as needed' : 'Mark as bought'} className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-primary ${g.resolved ? 'bg-primary text-cloud' : ''}`}>{g.resolved && <Icon name="check" size={14} strokeWidth={2.4} />}</button>
       <span className={`flex-1 ${g.resolved ? 'text-text/45 line-through' : ''}`}><span className="block text-[16px] font-medium">{g.label}</span><span className="block text-[13px] text-text-muted">{gapDetail(g)}</span></span>
-      <button onClick={() => removeGap(g.id)} className="text-[13px] text-text/45">Remove</button>
+      <button onClick={() => { removeGap(g.id); toast('Removed from Gaps') }} className="text-[13px] text-text/45">Remove</button>
     </div>
   )
   return (
@@ -171,7 +173,7 @@ export function Gaps() {
         <BackBar right="+ Add" onRight={() => setAdding(true)} />
         <Header title="Your gaps" body="Things you actually need. Check them off when you buy them." />
         {adding && (
-          <form onSubmit={(e) => { e.preventDefault(); if (label.trim()) addGap({ label: label.trim(), source: 'manual' }); setLabel(''); setAdding(false) }} className="flex gap-2">
+          <form onSubmit={(e) => { e.preventDefault(); if (label.trim()) { addGap({ label: label.trim(), source: 'manual' }); toast('Added to Gaps') } setLabel(''); setAdding(false) }} className="flex gap-2">
             <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Black belt" className="min-w-0 flex-1 rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" />
             <Button full={false}>Add</Button>
           </form>
@@ -194,7 +196,7 @@ function WishCard({ id }: { id: string }) {
       <span className="flex h-[130px] items-center justify-center overflow-hidden rounded-md bg-bg">{url ? <img src={url} alt={w.name} className="max-h-full max-w-full object-contain" /> : <Icon name="bag" size={32} />}</span>
       <span className="text-[14px] font-medium">{w.name}</span>
       <span className="text-[12px] text-text-muted">{[w.price, w.note].filter(Boolean).join(' · ') || ' '}</span>
-      <button onClick={() => removeWish(w.id)} className="self-start text-[12px] text-text/45">Remove</button>
+      <button onClick={() => { removeWish(w.id); toast('Removed from wishlist') }} className="self-start text-[12px] text-text/45">Remove</button>
     </Card>
   )
 }
@@ -233,7 +235,7 @@ export function NewWish() {
             <input value={v as string} onChange={(e) => (s as (x: string) => void)(e.target.value)} placeholder={p as string} className="rounded-md border border-border px-3.5 py-3 text-[15px] outline-none" /></label>
         ))}
         <div className="flex-1" />
-        <Button onClick={async () => { if (!name.trim()) return; await addWish({ name: name.trim(), price, note }, photo ?? undefined); nav('/shop/wishlist', { replace: true }) }}>Save</Button>
+        <Button onClick={async () => { if (!name.trim()) return; await addWish({ name: name.trim(), price, note }, photo ?? undefined); toast('Saved to wishlist'); nav('/shop/wishlist', { replace: true }) }}>Save</Button>
       </div>
     </Screen>
   )

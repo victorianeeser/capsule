@@ -9,6 +9,7 @@ import { deg, isRainy, condition } from '../lib/weather'
 import { autoLayout, Collage, Empty, ItemImage, OutfitTile, Thumbs } from '../components'
 import { loadImage } from '../lib/db'
 import { colorAt, dominantColor } from '../lib/color'
+import { toast } from '../lib/toast'
 
 /* ---------------- shared planner chrome ---------------- */
 function PlannerNav() {
@@ -114,7 +115,7 @@ function PlannedCard({ p }: { p: PlannedOutfit }) {
             <p className="text-[13px] leading-[1.4] text-text/65">It comes off {new Date(p.date + 'T12:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}. Your pieces and favorites stay as they are.</p>
             <div className="mt-1 flex gap-2.5">
               <Button variant="secondary" onClick={() => setConfirm(false)}>Cancel</Button>
-              <Button onClick={() => { setConfirm(false); unplan(p.id) }}>Remove</Button>
+              <Button onClick={() => { setConfirm(false); unplan(p.id); toast('Outfit removed') }}>Remove</Button>
             </div>
           </div>
         </div>
@@ -158,8 +159,8 @@ function SuggestionCard({ date }: { date: string }) {
       <OutfitTile itemIds={s.itemIds} />
       <div className="flex flex-col gap-2">
         {s.reason && <p className="text-[12px] text-text/70">{s.reason}</p>}
-        {s.missing.length > 0 && <p className="text-[12px] text-text/70">Missing {s.missing.join(', ')}. <button className="font-semibold underline" onClick={() => s.missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' }))}>Add to Gaps</button></p>}
-        {s.itemIds.length > 0 && <Button onClick={() => plan({ date, itemIds: s.itemIds, occasion: s.occasion, reason: s.reason, suggested: true })}>Use this outfit</Button>}
+        {s.missing.length > 0 && <p className="text-[12px] text-text/70">Missing {s.missing.join(', ')}. <button className="font-semibold underline" onClick={() => { s.missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' })); toast('Added to Gaps') }}>Add to Gaps</button></p>}
+        {s.itemIds.length > 0 && <Button onClick={() => { plan({ date, itemIds: s.itemIds, occasion: s.occasion, reason: s.reason, suggested: true }); toast('Added to your plan') }}>Use this outfit</Button>}
       </div>
     </div>
   )
@@ -279,12 +280,19 @@ export function OutfitColors() {
   usePhotoSwatches(pieces)
   const [sel, setSel] = useState<number | null>(null)
   const [msg, setMsg] = useState('')
+  const adding = useRef<number | null>(null) // index of the block the color picker is filling in
   if (!p || !o) return <Screen><BackBar /><Empty title="Not found" body="This outfit is no longer planned." /></Screen>
   const auto = pieces.map((it) => it.swatch ?? it.colors[0] ?? '')
   const colors = p.palette?.length ? p.palette : auto
   const save = (next: string[]) => setPalette(p.id, next)
   const put = (c: string) => {
     if (sel !== null) { const next = [...colors]; next[sel] = c; save(next) } else { save([...colors, c]); setSel(colors.length) }
+    setMsg('')
+  }
+  // The color picker fires many changes while you drag: the first one adds a block, the rest update that same block.
+  const add = (c: string) => {
+    if (adding.current !== null && adding.current < colors.length) { const next = [...colors]; next[adding.current] = c; save(next) }
+    else { adding.current = colors.length; save([...colors, c]); setSel(colors.length) }
     setMsg('')
   }
   const pick = (e: React.MouseEvent) => { const c = colorAt(e.clientX, e.clientY); if (c) put(c); else setMsg('Tap right on a piece to pull its color.') }
@@ -299,24 +307,30 @@ export function OutfitColors() {
           <div onClick={pick} className="relative w-[238px] shrink-0 cursor-crosshair rounded-[16px] bg-tile" title="Tap a piece to pull its color">
             <Collage itemIds={o.itemIds} layout={o.layout} width={238} height={328} top={12} padX={12} />
           </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-[3px] overflow-hidden rounded-[16px] border border-border p-[3px]" role="listbox" aria-label="Colors">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-y-auto rounded-[16px] border border-border p-2.5" role="listbox" aria-label="Colors">
             {colors.map((c, i) => (
               <button key={i} role="option" aria-selected={sel === i} onClick={() => setSel(sel === i ? null : i)} title={c}
-                className={`min-h-5 flex-1 rounded-[10px] bg-cloud shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)] transition-[outline] ${sel === i ? 'outline-2 outline-offset-2 outline-text' : ''}`} style={swatchStyle(c)} />
+                className={`max-h-16 min-h-6 flex-1 rounded-[10px] bg-cloud shadow-[inset_0_0_0_1px_rgb(0_0_0/0.08)] transition-shadow ${sel === i ? 'ring-2 ring-text ring-offset-2 ring-offset-bg' : ''}`} style={swatchStyle(c)} />
             ))}
           </div>
         </div>
         <p className="text-[13px] leading-[1.4] text-text-muted">{msg || (sel === null ? 'Tap the outfit to add a color straight from the photo. Tap a color on the right to change or remove it.' : 'Tap the outfit to replace the selected color, or pick one below.')}</p>
         <div className="flex flex-wrap gap-2">
+          {sel !== null && (
+            <label className="press flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-[13px] font-medium">
+              <span className="h-3.5 w-3.5 rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/0.15)]" style={swatchStyle(colors[sel])} />Edit color
+              <input type="color" className="sr-only" value={toHex(colors[sel])} onChange={(e) => put(e.target.value.toUpperCase())} />
+            </label>
+          )}
           <label className="press flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3.5 py-2 text-[13px] font-medium">
-            <Icon name="plus" size={16} />{sel === null ? 'Add color' : 'Pick a color'}
-            <input type="color" className="sr-only" value={toHex(sel === null ? colors[colors.length - 1] ?? '#9C9993' : colors[sel])} onChange={(e) => put(e.target.value.toUpperCase())} />
+            <Icon name="plus" size={16} />Add color
+            <input type="color" className="sr-only" value={toHex(adding.current !== null ? colors[adding.current] ?? '#9C9993' : '#9C9993')} onClick={() => { adding.current = null }} onChange={(e) => add(e.target.value.toUpperCase())} />
           </label>
           {sel !== null && <button onClick={remove} className="press rounded-full border border-border px-3.5 py-2 text-[13px] font-medium">Remove</button>}
           {p.palette?.length ? <button onClick={() => { setSel(null); setPalette(p.id, undefined) }} className="press rounded-full px-3.5 py-2 text-[13px] font-medium text-text/70 underline underline-offset-2">Reset to photo colors</button> : null}
         </div>
         <div className="flex-1" />
-        <Button onClick={() => nav(-1)}>Done</Button>
+        <Button onClick={() => { toast(p.palette?.length ? 'Colors saved' : 'Using photo colors'); nav(-1) }}>Done</Button>
       </div>
     </Screen>
   )
@@ -500,8 +514,8 @@ export function Canvas() {
     setDraft({ ...draft, layout: rest, itemIds: stillUsed ? draft.itemIds : draft.itemIds.filter((x) => x !== cur.itemId) })
   }
   const toggleFav = () => {
-    if (draft.favoriteId) { removeFavorite(draft.favoriteId); setDraft({ ...draft, layout: placed, favoriteId: undefined }) }
-    else if (items.length) setDraft({ ...draft, layout: placed, favoriteId: saveFavorite(draft.itemIds, placed) })
+    if (draft.favoriteId) { removeFavorite(draft.favoriteId); setDraft({ ...draft, layout: placed, favoriteId: undefined }); toast('Removed from favorites') }
+    else if (items.length) { setDraft({ ...draft, layout: placed, favoriteId: saveFavorite(draft.itemIds, placed) }); toast('Saved to favorites') }
   }
   const tool = (label: string, icon: React.ReactNode, onClick: () => void) => (
     <button onClick={onClick} className="flex flex-1 flex-col items-center gap-1 py-2 text-[11px] font-medium text-on-ink">{icon}{label}</button>
@@ -606,6 +620,7 @@ export function OutfitDetails() {
     if (draft.favoriteId) removeFavorite(draft.favoriteId) // the hearted copy is replaced by this saved outfit
     plan({ date, itemIds: draft.itemIds, layout: draft.layout, occasion, note, reason: draft.reason, suggested: draft.suggested, editingId: date === draft.date ? draft.editingId : undefined, favorite: fav })
     setDraft(undefined)
+    toast(draft.editingId && date === draft.date ? 'Changes saved' : 'Outfit saved')
     nav(`/planner?date=${date}`, { replace: true })
   }
   return (
@@ -647,7 +662,7 @@ export function OffDay() {
         {type === 'off' && <div className="flex flex-wrap gap-2">{ACTIVITIES.map((a) => <Chip key={a} label={a} selected={acts.includes(a)} onClick={() => toggle(a)} />)}</div>}
         {w && <Card><p className="text-[15px] font-medium">{deg(w.high, state.profile.unit)} / {deg(w.low, state.profile.unit)} · {isRainy(w) ? 'rain' : condition(w.code)}</p><p className="text-[13px] text-text-muted">{w.high < 50 ? 'Bring a layer' : w.high >= 75 ? 'Keep it light' : 'Mild day'}</p></Card>}
         <div className="flex-1" />
-        <Button onClick={() => { setDay(date, type, type === 'off' ? acts : []); nav(`/planner?date=${date}`, { replace: true }) }}>Get my outfit</Button>
+        <Button onClick={() => { setDay(date, type, type === 'off' ? acts : []); toast('Day updated'); nav(`/planner?date=${date}`, { replace: true }) }}>Get my outfit</Button>
       </div>
     </Screen>
   )
@@ -677,7 +692,7 @@ export function PlanWeek() {
     return { date, p, ids, repeat }
   })
   const anyRepeat = rows.some((r) => r.repeat)
-  const saveAll = () => { rows.forEach((r) => { if (!r.p && r.ids.length) plan({ date: r.date, itemIds: r.ids, occasion: occasionLabel(state, r.date), suggested: true, reason: 'Planned with the week — no repeats Mon–Fri.' }) }); nav(`/planner?date=${mon}`) }
+  const saveAll = () => { rows.forEach((r) => { if (!r.p && r.ids.length) plan({ date: r.date, itemIds: r.ids, occasion: occasionLabel(state, r.date), suggested: true, reason: 'Planned with the week — no repeats Mon–Fri.' }) }); toast('Work week planned'); nav(`/planner?date=${mon}`) }
   const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
   return (
     <Screen tabs>

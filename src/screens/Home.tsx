@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { BackBar, Button, Card, Eyebrow, Header, Heading, Icon, Screen, Title } from '../ui'
 import { useStore } from '../lib/store'
+import { toast } from '../lib/toast'
 import { dayName, fmtShort, greeting, monday, addDays } from '../lib/dates'
 import { condition, deg, isRainy } from '../lib/weather'
 import { Collage, Empty, OutfitTile } from '../components'
@@ -97,7 +98,7 @@ function OutfitCard({ when, weather, occasion, date, itemIds, layout, reason, mi
       {missing.length > 0 && (
         <p className="text-[13px] leading-[1.4] text-text/70">
           Missing {missing.join(', ')} for this.{' '}
-          <button className="font-semibold underline" onClick={() => missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' }))}>Add to Gaps</button>
+          <button className="font-semibold underline" onClick={() => { missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' })); toast('Added to Gaps') }}>Add to Gaps</button>
         </p>
       )}
       {!quiet && <div className="flex gap-2.5">{actions}</div>}
@@ -170,6 +171,7 @@ export function Home() {
     if (!d.itemIds.length) return
     const outfitId = d.outfit?.id ?? plan({ date: today, itemIds: d.itemIds, occasion: d.occasion, reason: d.reason, suggested: true }).outfitId
     setTimeout(() => toggleWore(today, outfitId), 0)
+    toast(worn ? 'No longer marked as worn' : 'Logged as worn today')
   }
   const change = () => { setDraft({ date: today, itemIds: d.itemIds, editingId: d.first?.id, occasion: d.occasion }); nav(`/planner/add?date=${today}`) }
   const build = () => { setDraft({ date: today, itemIds: [], occasion: d.occasion }); nav(`/planner/add?date=${today}`) }
@@ -186,7 +188,7 @@ export function Home() {
             reason={worn ? '✓ Logged — every piece is marked as worn today.' : d.reason} missing={worn ? [] : d.missing}
             actions={<><ActionButton onClick={change}>Change it</ActionButton><ActionButton primary onClick={wore}>{worn ? '✓ Wore it' : 'Wore it'}</ActionButton></>}
             quiet={d.skipped || d.rest ? <QuietDay when="today" skipped={d.skipped} onSuggest={() => setAsk(true)} onBuild={build} onUndo={() => toggleSkip(today)} /> : undefined}
-            skip={!worn && !d.first && <SkipLink onClick={() => { setAsk(false); toggleSkip(today) }}>No outfit needed today</SkipLink>}
+            skip={!worn && !d.first && <SkipLink onClick={() => { setAsk(false); toggleSkip(today); toast('No outfit needed today') }}>No outfit needed today</SkipLink>}
           />
         )}
         {d.planned.length > 1 && <Link to={`/planner?date=${today}`} className="-mt-1 text-center text-[13px] font-medium text-text/65">+ {d.planned.length - 1} more outfit today →</Link>}
@@ -206,7 +208,7 @@ export function HomeEvening() {
   const unit = state.profile.unit
   const build = () => { setDraft({ date: tomorrow, itemIds: [], occasion: t.occasion }); nav(`/planner/add?date=${tomorrow}`) }
   const change = () => { setDraft({ date: tomorrow, itemIds: t.itemIds, editingId: t.first?.id, occasion: t.occasion }); nav(`/planner/add?date=${tomorrow}`) }
-  const looksGood = () => { if (!t.first && t.itemIds.length) plan({ date: tomorrow, itemIds: t.itemIds, occasion: t.occasion, reason: t.reason, suggested: true }); nav(`/planner?date=${tomorrow}`) }
+  const looksGood = () => { if (!t.first && t.itemIds.length) { plan({ date: tomorrow, itemIds: t.itemIds, occasion: t.occasion, reason: t.reason, suggested: true }); toast('Saved to your plan') } nav(`/planner?date=${tomorrow}`) }
   const hasCloset = state.items.some((i) => i.tagged && i.status === 'active')
   return (
     <Screen tabs>
@@ -220,7 +222,7 @@ export function HomeEvening() {
             reason={t.first ? `✓ Planned. ${t.reason}` : t.reason ? `Suggested: ${t.reason}` : ''} missing={t.missing}
             actions={<><ActionButton onClick={change}>Change it</ActionButton><ActionButton primary onClick={looksGood}>{t.first ? 'View in Planner' : 'Looks good'}</ActionButton></>}
             quiet={t.skipped || t.rest ? <QuietDay when="tomorrow" skipped={t.skipped} onSuggest={() => setAsk(true)} onBuild={build} onUndo={() => toggleSkip(tomorrow)} /> : undefined}
-            skip={!t.first && <SkipLink onClick={() => { setAsk(false); toggleSkip(tomorrow) }}>No outfit needed tomorrow</SkipLink>}
+            skip={!t.first && <SkipLink onClick={() => { setAsk(false); toggleSkip(tomorrow); toast('No outfit needed tomorrow') }}>No outfit needed tomorrow</SkipLink>}
           />
         )}
         <ForYou />
@@ -250,7 +252,7 @@ export function Favorites() {
                 <div key={o.id} className="flex flex-col overflow-hidden rounded-[18px] bg-surface">
                   <div className="relative h-[190px] bg-tile">
                     <Collage itemIds={o.itemIds} layout={o.layout} width={171} height={186} top={10} padX={8} />
-                    <button onClick={() => removeFavorite(o.id)} aria-label="Remove from favorites" className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg">
+                    <button onClick={() => { removeFavorite(o.id); toast('Removed from favorites') }} aria-label="Remove from favorites" className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
                     </button>
                   </div>

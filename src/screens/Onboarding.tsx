@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { BackBar, Body, Button, Card, Chip, Eyebrow, Header, Icon, ProgressBar, Screen } from '../ui'
 import { useStore } from '../lib/store'
+import { toast } from '../lib/toast'
 import { searchCity, type Place } from '../lib/weather'
 import { PhotoPicker, QueueBanner, ItemImage } from '../components'
 import type { DayType } from '../lib/types'
@@ -41,7 +42,7 @@ export function Routine() {
   const fromSettings = useFromSettings()
   const [routine, setRoutine] = useState<DayType[]>(state.profile.routine)
   const [hours, setHours] = useState(state.profile.workHours)
-  const save = () => { setProfile({ routine, workHours: hours }); if (fromSettings) nav(-1); else nav('/onboarding/city') }
+  const save = () => { setProfile({ routine, workHours: hours }); if (fromSettings) { toast('Routine saved'); nav(-1) } else nav('/onboarding/city') }
   return (
     <Screen>
       <div className="flex flex-1 flex-col gap-4">
@@ -87,7 +88,7 @@ export function City() {
       () => setMsg('Location permission was denied — type your city instead.'),
     )
   }
-  const save = () => { setProfile({ unit, ...(picked ?? {}) }); if (fromSettings) nav(-1); else nav('/onboarding/pieces') }
+  const save = () => { setProfile({ unit, ...(picked ?? {}) }); if (fromSettings) { toast('Home city saved'); nav(-1) } else nav('/onboarding/pieces') }
   return (
     <Screen>
       <div className="flex flex-1 flex-col gap-4">
@@ -121,7 +122,7 @@ export function FirstPieces() {
   const nav = useNavigate()
   const added = state.items.filter((i) => i.imageId || i.demoKind)
   const done = () => { setProfile({ onboarded: true }); nav(state.items.some((i) => !i.tagged) ? '/closet/tag' : '/home') }
-  const onFiles = async (f: File[]) => { await addPhotos(f) }
+  const onFiles = async (f: File[]) => { await addPhotos(f); toast(`${f.length} ${f.length === 1 ? 'photo' : 'photos'} added`) }
   return (
     <Screen>
       <div className="flex flex-1 flex-col gap-4">
