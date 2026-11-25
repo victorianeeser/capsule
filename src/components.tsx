@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ensureImageUrl, imageUrl, onImageChange } from './lib/db'
 import { KIND_FOR, type Item, type Placed } from './lib/types'
 import { Garment, Icon } from './ui'
+import { Link } from 'react-router'
 import { useStore } from './lib/store'
+import { toast } from './lib/toast'
 
 /** Loads a stored photo as an object URL (re-renders when the photo is replaced, e.g. after background removal). */
 export function useImage(id?: string) {
@@ -101,6 +103,31 @@ export function OutfitTile({ itemIds, layout }: { itemIds: string[]; layout?: Pl
   return (
     <div className="relative mx-auto shrink-0 rounded-[16px] bg-tile" style={{ width: OUTFIT_TILE.w, height: OUTFIT_TILE.h }}>
       <Collage itemIds={itemIds} layout={layout} width={OUTFIT_TILE.w} height={OUTFIT_TILE.h - 12} top={12} padX={16} />
+    </div>
+  )
+}
+
+/**
+ * A suggestion that couldn't be completed: says what's missing, with two ways forward —
+ * add the piece to the closet now, or put it on the Gaps list for the next shop.
+ */
+export function MissingPieces({ missing }: { missing: string[] }) {
+  const { state, addGap } = useStore()
+  const label = (m: string) => m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase())
+  const onList = missing.every((m) => state.gaps.some((g) => !g.resolved && g.label.toLowerCase() === label(m).toLowerCase()))
+  const noun = missing.length === 1 ? missing[0].replace(/^a /, '') : 'pieces'
+  const addGaps = () => {
+    missing.forEach((m) => { if (!state.gaps.some((g) => !g.resolved && g.label.toLowerCase() === label(m).toLowerCase())) addGap({ label: label(m), source: 'nudge', detail: 'Couldn’t build an outfit without it' }) })
+    toast('Added to Gaps')
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded-md bg-soft p-3.5" onClick={(e) => e.stopPropagation()}>
+      <p className="text-[14px] font-semibold">Missing {missing.join(' and ')}</p>
+      <p className="text-[12px] leading-[1.4] text-text/70">This outfit isn’t complete yet. Add {missing.length === 1 ? 'one' : 'them'} to your closet, or save {missing.length === 1 ? 'it' : 'them'} for your next shop.</p>
+      <div className="flex gap-2">
+        <Link to="/closet/add" className="press flex-1 truncate rounded-full bg-primary px-3 py-2 text-center text-[13px] font-medium text-cloud">Add {noun}</Link>
+        <button onClick={addGaps} disabled={onList} className="press flex-1 rounded-full border border-border px-3 py-2 text-[13px] font-medium disabled:opacity-60">{onList ? '✓ In your Gaps' : 'Add to Gaps'}</button>
+      </div>
     </div>
   )
 }

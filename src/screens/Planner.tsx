@@ -6,7 +6,7 @@ import { ACTIVITIES, CATEGORIES, CATEGORY_LABEL, SWATCH, type Activity, type Cat
 import { addDays, dayShort, fmtLong, fmtShort, iso, monday, monthTitle, parse, weekStart } from '../lib/dates'
 import { autoSuggests, dayInfo, occasionLabel } from '../lib/suggest'
 import { deg, isRainy, condition } from '../lib/weather'
-import { autoLayout, Collage, Empty, ItemImage, OutfitTile, Thumbs } from '../components'
+import { autoLayout, Collage, Empty, ItemImage, MissingPieces, OutfitTile, Thumbs } from '../components'
 import { loadImage } from '../lib/db'
 import { colorAt, dominantColor } from '../lib/color'
 import { toast } from '../lib/toast'
@@ -159,7 +159,7 @@ function SuggestionCard({ date }: { date: string }) {
       <OutfitTile itemIds={s.itemIds} />
       <div className="flex flex-col gap-2">
         {s.reason && <p className="text-[12px] text-text/70">{s.reason}</p>}
-        {s.missing.length > 0 && <p className="text-[12px] text-text/70">Missing {s.missing.join(', ')}. <button className="font-semibold underline" onClick={() => { s.missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' })); toast('Added to Gaps') }}>Add to Gaps</button></p>}
+        {s.missing.length > 0 && <MissingPieces missing={s.missing} />}
         {s.itemIds.length > 0 && <Button onClick={() => { plan({ date, itemIds: s.itemIds, occasion: s.occasion, reason: s.reason, suggested: true }); toast('Added to your plan') }}>Use this outfit</Button>}
       </div>
     </div>

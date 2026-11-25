@@ -18,6 +18,7 @@ export interface Item {
   quantity?: number       // how many identical ones you own (e.g. 10 leggings); default 1
   category: Category
   colors: string[]        // one or more (e.g. Denim + Black)
+  tags?: string[]         // your own labels (Interview, Vacation…)
   warmth: Warmth
   dressLevels: DressLevel[]  // one or more (e.g. Work + Going out)
   context: Context

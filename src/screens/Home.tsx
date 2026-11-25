@@ -1,13 +1,13 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { BackBar, Button, Card, Eyebrow, Header, Heading, Icon, Screen, Title } from '../ui'
 import { useStore } from '../lib/store'
 import { toast } from '../lib/toast'
-import { dayName, fmtShort, greeting, monday, addDays } from '../lib/dates'
+import { dayName, daysBetween, fmtShort, greeting, monday, addDays, relative } from '../lib/dates'
 import { condition, deg, isRainy } from '../lib/weather'
-import { Collage, Empty, OutfitTile } from '../components'
-import { autoSuggests, occasionLabel } from '../lib/suggest'
-import type { Item, Placed } from '../lib/types'
+import { Collage, Empty, ItemImage, MissingPieces, OutfitTile } from '../components'
+import { autoSuggests, occasionLabel, wearStats } from '../lib/suggest'
+import { countPieces, type Item, type Placed, type State } from '../lib/types'
 
 function HomeHeader({ title, date }: { title: string; date: string }) {
   const { state, forecast, weatherFor, today } = useStore()
@@ -95,12 +95,7 @@ function OutfitCard({ when, weather, occasion, date, itemIds, layout, reason, mi
       {quiet}
       {!quiet && items.length > 0 && <OutfitTile itemIds={itemIds} layout={layout} />}
       {reason && <p className="text-[13px] leading-[1.4] text-text/70">{reason}</p>}
-      {missing.length > 0 && (
-        <p className="text-[13px] leading-[1.4] text-text/70">
-          Missing {missing.join(', ')} for this.{' '}
-          <button className="font-semibold underline" onClick={() => { missing.forEach((m) => addGap({ label: m.replace(/^a /, '').replace(/^./, (c) => c.toUpperCase()), source: 'nudge', detail: 'Couldn’t build an outfit without it' })); toast('Added to Gaps') }}>Add to Gaps</button>
-        </p>
-      )}
+      {missing.length > 0 && <MissingPieces missing={missing} />}
       {!quiet && <div className="flex gap-2.5">{actions}</div>}
       {!quiet && skip}
     </Card>
@@ -127,6 +122,7 @@ function ForYou() {
   const gaps = state.gaps.filter((g) => !g.resolved)
   const pieces = state.items.filter((i) => i.status === 'active').length
   const favs = state.outfits.filter((o) => o.isFavorite && o.itemIds.length).length
+  const wornPct = usageStats(state, today).pct
   return (
     <>
       <div className="flex items-center justify-between pt-1">
@@ -134,6 +130,7 @@ function ForYou() {
         <Link to="/settings" aria-label="Settings" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface"><Icon name="sliders" size={20} /></Link>
       </div>
       <ActionCard to="/planner/week" icon="calendar" title="Plan your work week" detail={planned ? `${planned} of 5 workdays planned` : 'Sunday reminder · 5 minutes'} />
+      <ActionCard to="/stats" icon="hanger" title="Closet stats" detail={pieces ? `${wornPct}% of your pieces worn in the last 30 days` : 'See what you wear and what you don’t'} />
       <ActionCard to="/favorites" icon="heart" title="Favorites" detail={favs ? `${favs} saved ${favs === 1 ? 'outfit' : 'outfits'} to wear again` : 'Heart an outfit while you build it'} />
       <ActionCard to="/shop" icon="bag" title="Going shopping?" detail="What you own and what you need.">
         <div className="no-scrollbar flex gap-2 overflow-x-auto">
@@ -231,36 +228,105 @@ export function HomeEvening() {
   )
 }
 
-/** Favorites — outfits you hearted on the Canvas (or saved with "Save to favorites"). */
-export function Favorites() {
+/** Your favorite outfits as a grid of tiles with "Plan it" — used on the Favorites page and in Closet → Outfits. */
+export function FavoritesGrid() {
   const { state, tomorrow, setDraft, removeFavorite } = useStore()
   const nav = useNavigate()
   const favs = state.outfits.filter((o) => o.isFavorite && o.itemIds.length).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   const wear = (o: (typeof favs)[number]) => { setDraft({ date: tomorrow, itemIds: o.itemIds, layout: o.layout, occasion: occasionLabel(state, tomorrow) }); nav(`/planner/details?date=${tomorrow}`) }
   const build = () => { setDraft({ date: tomorrow, itemIds: [], occasion: occasionLabel(state, tomorrow) }); nav(`/planner/add?date=${tomorrow}`) }
+  if (!favs.length) return <Empty icon="heart" title="No saved outfits yet" body="Build an outfit and tap the heart on the canvas — it lands here, ready to wear again." action={<Button onClick={build}>Build an outfit</Button>} />
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {favs.map((o) => (
+          <div key={o.id} className="flex flex-col overflow-hidden rounded-[18px] bg-surface">
+            <div className="relative h-[190px] bg-tile">
+              <Collage itemIds={o.itemIds} layout={o.layout} width={171} height={186} top={10} padX={8} />
+              <button onClick={() => { removeFavorite(o.id); toast('Removed from favorites') }} aria-label="Remove from favorites" className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
+              </button>
+            </div>
+            <button onClick={() => wear(o)} className="border-t border-border py-2.5 text-[14px] font-semibold">Plan it</button>
+          </div>
+        ))}
+      </div>
+      <button onClick={build} className="flex h-14 items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent text-[15px] font-medium text-text/70">+ Build a new outfit</button>
+    </>
+  )
+}
+
+/** Favorites — outfits you hearted on the Canvas (or saved with "Save to favorites"). */
+export function Favorites() {
   return (
     <Screen tabs>
       <div className="flex flex-col gap-4">
         <BackBar />
         <Header title="Favorites" body="Outfits you love, ready to wear again. Tap the heart while building an outfit to save it here." />
-        {favs.length === 0 ? (
-          <Empty icon="heart" title="No favorites yet" body="Build an outfit and tap the heart on the canvas — it lands here." action={<Button onClick={build}>Build an outfit</Button>} />
-        ) : (
+        <FavoritesGrid />
+      </div>
+    </Screen>
+  )
+}
+
+/* ---------------- Closet stats ---------------- */
+/** How much of the closet gets worn: % worn in the last 30 days, most/least worn, and pieces idle for 60+ days. */
+function usageStats(state: State, today: string) {
+  const stats = wearStats(state)
+  const active = state.items.filter((i) => i.status === 'active' && i.tagged)
+  const recent = new Set(state.wear.filter((w) => w.wornOn <= today && daysBetween(w.wornOn, today) <= 30).map((w) => w.itemId))
+  const pct = active.length ? Math.round((active.filter((i) => recent.has(i.id)).length / active.length) * 100) : 0
+  const times = (i: Item) => stats.get(i.id)?.times ?? 0
+  const most = active.filter((i) => times(i) > 0).sort((a, b) => times(b) - times(a)).slice(0, 3)
+  const least = [...active].sort((a, b) => times(a) - times(b) || a.createdAt.localeCompare(b.createdAt)).slice(0, 3)
+  // Idle = not worn for 60+ days (or, if never worn, added 60+ days ago — brand-new pieces don't count).
+  const idle = active
+    .map((i) => ({ i, since: stats.get(i.id)?.last ?? i.createdAt.slice(0, 10) }))
+    .filter(({ since }) => daysBetween(since, today) >= 60)
+    .sort((a, b) => a.since.localeCompare(b.since))
+  return { active, stats, pct, most, least, idle }
+}
+
+export function ClosetStats() {
+  const { state, today, saveItem } = useStore()
+  const u = useMemo(() => usageStats(state, today), [state, today])
+  const row = (it: Item, right: ReactNode) => (
+    <div key={it.id} className="flex items-center gap-3 border-b border-border py-2.5 last:border-0">
+      <Link to={`/closet/item/${it.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-tile"><ItemImage item={it} size={42} /></span>
+        <span className="min-w-0"><span className="block truncate text-[14px] font-medium">{it.name}</span>
+          <span className="block text-[12px] text-text-muted">{u.stats.get(it.id)?.last ? `Worn ${u.stats.get(it.id)!.times}× · last ${relative(u.stats.get(it.id)!.last!)}` : 'Not worn yet'}</span></span>
+      </Link>
+      {right}
+    </div>
+  )
+  return (
+    <Screen tabs>
+      <div className="flex flex-col gap-4">
+        <BackBar label="Home" />
+        <Header title="Closet stats" body="What you actually wear — and what you might not need." />
+        {!u.active.length ? <NoCloset /> : (
           <>
-            <div className="grid grid-cols-2 gap-3">
-              {favs.map((o) => (
-                <div key={o.id} className="flex flex-col overflow-hidden rounded-[18px] bg-surface">
-                  <div className="relative h-[190px] bg-tile">
-                    <Collage itemIds={o.itemIds} layout={o.layout} width={171} height={186} top={10} padX={8} />
-                    <button onClick={() => { removeFavorite(o.id); toast('Removed from favorites') }} aria-label="Remove from favorites" className="absolute top-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-bg">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" /></svg>
-                    </button>
-                  </div>
-                  <button onClick={() => wear(o)} className="border-t border-border py-2.5 text-[14px] font-semibold">Plan it</button>
-                </div>
-              ))}
+            <Card className="flex flex-col gap-2.5">
+              <div className="flex items-baseline justify-between"><span className="text-[32px] font-semibold leading-none">{u.pct}%</span><span className="text-[12px] text-text-muted">{countPieces(u.active)} pieces</span></div>
+              <p className="text-[13px] text-text/70">of your pieces were worn in the last 30 days</p>
+              <div className="h-1.5 rounded-full bg-cloud"><div className="h-1.5 rounded-full bg-primary" style={{ width: `${u.pct}%` }} /></div>
+            </Card>
+            <div>
+              <Heading size={16}>Most worn</Heading>
+              {u.most.length ? <div className="pt-1">{u.most.map((it) => row(it, <span className="text-[14px] font-semibold">{u.stats.get(it.id)?.times}×</span>))}</div>
+                : <p className="pt-2 text-[13px] text-text-muted">Tap “Wore it” on Home and your favorites show up here.</p>}
             </div>
-            <button onClick={build} className="flex h-14 items-center justify-center rounded-lg border-[1.2px] border-dashed border-accent text-[15px] font-medium text-text/70">+ Build a new outfit</button>
+            <div>
+              <Heading size={16}>Least worn</Heading>
+              <div className="pt-1">{u.least.map((it) => row(it, <span className="text-[14px] font-semibold">{u.stats.get(it.id)?.times ?? 0}×</span>))}</div>
+            </div>
+            <div>
+              <Heading size={16}>Not worn in 60 days</Heading>
+              {u.idle.length ? (
+                <div className="pt-1">{u.idle.map(({ i }) => row(i, <button onClick={() => { saveItem({ ...i, status: 'donate' }); toast('Marked to donate') }} className="press shrink-0 rounded-full border border-border px-3 py-1.5 text-[13px] font-medium">Donate?</button>))}</div>
+              ) : <p className="pt-2 text-[13px] text-text-muted">Nothing’s been sitting unworn for 60 days. Nice.</p>}
+            </div>
           </>
         )}
       </div>

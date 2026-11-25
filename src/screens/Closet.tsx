@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { BackBar, Body, Button, Card, Chip, Eyebrow, FabButton, Header, Heading, Icon, ListRow, ProgressBar, Screen, Title, Toggle } from '../ui'
 import { useStore } from '../lib/store'
 import { toast } from '../lib/toast'
@@ -7,22 +7,28 @@ import { CATEGORIES, CATEGORY_LABEL, CATEGORY_ONE, COLORS, CONTEXT_LABEL, DRESS_
 import { wearStats } from '../lib/suggest'
 import { fmtMonthDay, relative } from '../lib/dates'
 import { Empty, ItemImage, PhotoPicker, QueueBanner, Thumbs } from '../components'
+import { FavoritesGrid } from './Home'
 
 const CATS: (Category | 'all')[] = ['all', ...CATEGORIES]
 export const matches = (i: Item, q: string) => {
   const t = q.trim().toLowerCase()
   if (!t) return true
-  const hay = `${i.name} ${i.brand ?? ''} ${i.colors.join(' ')} ${CATEGORY_ONE[i.category]} ${CATEGORY_LABEL[i.category]} ${i.dressLevels.map((l) => DRESS_LABEL[l]).join(' ')}`.toLowerCase()
+  const hay = `${i.name} ${i.brand ?? ''} ${i.colors.join(' ')} ${(i.tags ?? []).join(' ')} ${CATEGORY_ONE[i.category]} ${CATEGORY_LABEL[i.category]} ${i.dressLevels.map((l) => DRESS_LABEL[l]).join(' ')}`.toLowerCase()
   return t.split(/\s+/).every((w) => hay.includes(w.replace(/s$/, '')))
 }
 
 type Sort = 'newest' | 'oldest' | 'most' | 'least' | 'color' | 'name'
 const SORTS: [Sort, string][] = [['newest', 'Newest'], ['oldest', 'Oldest'], ['most', 'Most worn'], ['least', 'Least worn'], ['color', 'Color'], ['name', 'A–Z']]
-interface Filters { colors: string[]; levels: DressLevel[]; warmth: Warmth[]; sizes: string[] }
-const NO_FILTERS: Filters = { colors: [], levels: [], warmth: [], sizes: [] }
+interface Filters { colors: string[]; levels: DressLevel[]; warmth: Warmth[]; sizes: string[]; tags: string[] }
+const NO_FILTERS: Filters = { colors: [], levels: [], warmth: [], sizes: [], tags: [] }
+/** Every tag used in the closet, A–Z. */
+export const allTags = (items: Item[]) => [...new Set(items.flatMap((i) => i.tags ?? []))].sort((a, b) => a.localeCompare(b))
 
 export function Closet() {
   const { state } = useStore()
+  const [params, setParams] = useSearchParams()
+  const view = params.get('view') === 'outfits' ? 'outfits' : 'pieces'
+  const favCount = state.outfits.filter((o) => o.isFavorite && o.itemIds.length).length
   const [cat, setCat] = useState<Category | 'all'>('all')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
@@ -32,7 +38,7 @@ export function Closet() {
   const active = state.items.filter((i) => i.status === 'active')
   const any = <T,>(sel: T[], vals: T[]) => !sel.length || vals.some((v) => sel.includes(v))
   const items = active
-    .filter((i) => (cat === 'all' || i.category === cat) && matches(i, q) && any(f.colors, i.colors) && any(f.levels, i.dressLevels) && any(f.warmth, [i.warmth]) && any(f.sizes, i.size ? [i.size] : []))
+    .filter((i) => (cat === 'all' || i.category === cat) && matches(i, q) && any(f.colors, i.colors) && any(f.levels, i.dressLevels) && any(f.warmth, [i.warmth]) && any(f.sizes, i.size ? [i.size] : []) && any(f.tags, i.tags ?? []))
     .sort((a, b) => {
       const worn = (x: Item) => stats.get(x.id)?.times ?? 0
       switch (sort) {
@@ -46,7 +52,8 @@ export function Closet() {
     })
   const untagged = state.items.filter((i) => !i.tagged).length
   const toAudit = active.filter((i) => !state.auditDone.includes(i.id)).length
-  const nFilters = f.colors.length + f.levels.length + f.warmth.length + f.sizes.length
+  const nFilters = f.colors.length + f.levels.length + f.warmth.length + f.sizes.length + f.tags.length
+  const usedTags = allTags(active)
   const usedColors = COLORS.filter((c) => active.some((i) => i.colors.includes(c)))
   const usedSizes = [...new Set(active.filter((i) => cat === 'all' || i.category === cat).map((i) => i.size).filter(Boolean) as string[])]
   const flip = <K extends keyof Filters>(k: K, v: Filters[K][number]) => setF((x) => ({ ...x, [k]: (x[k] as string[]).includes(v) ? (x[k] as string[]).filter((y) => y !== v) : [...x[k], v] }))
@@ -57,11 +64,19 @@ export function Closet() {
     </div>
   )
   return (
-    <Screen tabs fab={<FabButton label="Add items" to="/closet/add" />}>
+    <Screen tabs fab={view === 'pieces' && <FabButton label="Add items" to="/closet/add" />}>
       <div className="flex flex-col gap-3.5">
         <div className="flex items-center justify-between">
           <div><Title>Closet</Title><p className="text-[13px] text-text-muted">{countPieces(active)} {countPieces(active) === 1 ? 'piece' : 'pieces'}</p></div>
         </div>
+        <div className="flex rounded-full bg-surface p-[3px] text-[14px]" role="group" aria-label="Show">
+          {([['pieces', 'Pieces'], ['outfits', 'Outfits']] as const).map(([v, l]) => (
+            <button key={v} onClick={() => setParams(v === 'outfits' ? { view: 'outfits' } : {}, { replace: true })} aria-pressed={view === v}
+              className={`flex-1 rounded-full py-2 transition-colors ${view === v ? 'bg-bg font-semibold shadow-overlay' : 'text-text/55'}`}>{l}{v === 'outfits' && favCount > 0 ? ` · ${favCount}` : ''}</button>
+          ))}
+        </div>
+        {view === 'outfits' ? <FavoritesGrid /> : (
+          <>
         <QueueBanner />
         {untagged > 0 && (
           <Link to="/closet/tag" className="flex items-center gap-2 rounded-md bg-primary px-3.5 py-3 text-[14px] font-medium text-cloud"><span className="flex-1">{untagged} {untagged === 1 ? 'piece needs' : 'pieces need'} tags</span><Icon name="chev" size={20} /></Link>
@@ -89,6 +104,7 @@ export function Closet() {
                 {row('Dress level', 'levels', Object.entries(DRESS_LABEL) as [DressLevel, string][])}
                 {row('Warmth', 'warmth', Object.entries(WARMTH_LABEL) as [Warmth, string][])}
                 {row('Size', 'sizes', usedSizes.map((z) => [z, z]))}
+                {row('Your tags', 'tags', usedTags.map((t) => [t, t]))}
                 {(nFilters > 0 || sort !== 'newest') && <button className="self-start text-[13px] font-semibold underline" onClick={() => { setF(NO_FILTERS); setSort('newest') }}>Clear all</button>}
               </div>
             )}
@@ -99,6 +115,11 @@ export function Closet() {
             <div className="no-scrollbar -mt-1.5 flex gap-2 overflow-x-auto" role="group" aria-label="Dress level">
               {(Object.entries(DRESS_LABEL) as [DressLevel, string][]).map(([v, l]) => <Chip key={v} small label={l} selected={f.levels.includes(v)} onClick={() => flip('levels', v)} />)}
             </div>
+            {usedTags.length > 0 && (
+              <div className="no-scrollbar -mt-1.5 flex gap-2 overflow-x-auto" role="group" aria-label="Your tags">
+                {usedTags.map((t) => <Chip key={t} small label={`#${t}`} selected={f.tags.includes(t)} onClick={() => flip('tags', t)} />)}
+              </div>
+            )}
             {toAudit > 0 && (
               <Link to="/closet/audit" className="flex items-center gap-2 rounded-md bg-soft px-3.5 py-3 text-[14px] font-medium"><span className="flex-1">Closet audit · {toAudit} to review</span><Icon name="chev" size={20} /></Link>
             )}
@@ -120,6 +141,8 @@ export function Closet() {
               </Link>
             ))}
           </div>
+        )}
+          </>
         )}
       </div>
     </Screen>
@@ -236,12 +259,37 @@ export function TagItem() {
           </div>
         </div>
         {group('Worn for', CONTEXT_LABEL, it.context, 'context')}
+        <TagField value={it.tags ?? []} onChange={(tags) => set({ tags })} known={allTags(state.items)} />
         <div className="flex items-center justify-between py-1"><span className="text-[14px]">Delicate (skip on rainy days)</span><Toggle key={it.id} initial={it.delicate} onChange={(v) => set({ delicate: v })} /></div>
         <div className="flex-1" />
         <Button onClick={save}>{id ? 'Save' : queue.length > 1 ? 'Save & next' : 'Save'}</Button>
         {!id && <Button variant="text" onClick={() => { deleteItem(it.id); setDraft(null); toast('Photo removed') }}>Remove this photo</Button>}
       </div>
     </Screen>
+  )
+}
+
+/** Your own labels: type one and press Enter (or comma); tags used elsewhere show below to reuse. */
+function TagField({ value, onChange, known }: { value: string[]; onChange: (v: string[]) => void; known: string[] }) {
+  const [text, setText] = useState('')
+  const norm = (t: string) => t.trim().replace(/^#/, '').replace(/\s+/g, ' ').replace(/^./, (c) => c.toUpperCase())
+  const has = (t: string) => value.some((v) => v.toLowerCase() === t.toLowerCase())
+  const add = (raw: string) => { const t = norm(raw); if (t && !has(t)) onChange([...value, t]); setText('') }
+  const others = known.filter((t) => !has(t))
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Eyebrow className="text-[11px]">Your tags · optional</Eyebrow>
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border px-2.5 py-2">
+        {value.map((t) => (
+          <button key={t} onClick={() => onChange(value.filter((v) => v !== t))} aria-label={`Remove tag ${t}`} className="flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[13px] text-cloud">#{t}<span aria-hidden className="text-cloud/70">×</span></button>
+        ))}
+        <input value={text} onChange={(e) => (e.target.value.endsWith(',') ? add(e.target.value.slice(0, -1)) : setText(e.target.value))}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(text) } else if (e.key === 'Backspace' && !text && value.length) onChange(value.slice(0, -1)) }}
+          onBlur={() => text.trim() && add(text)} placeholder={value.length ? 'Add another' : 'e.g. Interview, Vacation'} enterKeyHint="done"
+          className="min-w-[120px] flex-1 bg-transparent py-1 text-[14px] outline-none placeholder:text-text/45" aria-label="Add a tag" />
+      </div>
+      {others.length > 0 && <div className="flex flex-wrap gap-2">{others.slice(0, 12).map((t) => <Chip key={t} small label={`+ ${t}`} onClick={() => add(t)} />)}</div>}
+    </div>
   )
 }
 
@@ -264,7 +312,7 @@ export function ItemDetail() {
           <Heading>{it.name}</Heading>
           {it.brand && <p className="text-[15px] text-text-muted">{it.brand}</p>}
         </div>
-        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.size ? `Size ${it.size}` : '', (it.quantity ?? 1) > 1 ? `You own ${it.quantity}` : '', ...it.colors, `${WARMTH_LABEL[it.warmth]} warmth`, ...it.dressLevels.map((l) => DRESS_LABEL[l]), CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : ''].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
+        <div className="flex flex-wrap gap-2">{[CATEGORY_ONE[it.category], it.size ? `Size ${it.size}` : '', (it.quantity ?? 1) > 1 ? `You own ${it.quantity}` : '', ...it.colors, `${WARMTH_LABEL[it.warmth]} warmth`, ...it.dressLevels.map((l) => DRESS_LABEL[l]), CONTEXT_LABEL[it.context], it.delicate ? 'Delicate' : '', ...(it.tags ?? []).map((t) => `#${t}`)].filter(Boolean).map((t) => <Chip key={t} label={t} />)}</div>
         <div className="grid grid-cols-3 gap-2.5">
           {[[`${st?.times ?? 0}×`, 'worn'], [st?.last ? fmtMonthDay(st.last) : '—', 'last worn'], [it.status === 'active' ? 'Keep' : it.status === 'donate' ? 'Donate' : 'Replace', 'status']].map(([n, l]) => (
             <Card key={l} className="p-3.5"><p className="text-[20px] font-semibold">{n}</p><p className="text-[12px] text-text-muted">{l}</p></Card>
